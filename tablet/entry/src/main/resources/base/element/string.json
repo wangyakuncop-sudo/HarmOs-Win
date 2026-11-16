@@ -1,0 +1,36 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "HarmLink 主模块"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "投屏与反向控制"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "HarmLink"
+    },
+    {
+      "name": "accessibility_label",
+      "value": "HarmLink 低频操作"
+    },
+    {
+      "name": "accessibility_desc",
+      "value": "接收电脑端三键导航与低频点击，用于投屏反向控制"
+    },
+    {
+      "name": "screen_capture_reason",
+      "value": "用于把平板屏幕实时投屏到自己的电脑，画面仅在本机局域网内传输"
+    },
+    {
+      "name": "screen_capture_used_scene",
+      "value": "投屏到电脑时采集屏幕画面"
+    },
+    {
+      "name": "float_view_reason",
+      "value": "在你要发送剪贴板时，把「粘贴」小卡片浮在当前应用之上，不切换界面"
+    }
+  ]
+}

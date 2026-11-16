@@ -1,0 +1,123 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>HarmOsWin.App</RootNamespace>
+    <AssemblyName>HarmOsWin</AssemblyName>
+    <!-- 应用图标（2026-11-14 用户要求）：exe 文件图标、任务栏图标、Alt+Tab 都用它。
+         同一份 app.ico 也作为 WPF Resource 打进程序集，由 MainWindow 设给窗口，
+         否则标题栏左上角仍是系统默认图标。 -->
+    <ApplicationIcon>app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="app.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HarmOsWin.Core\HarmOsWin.Core.csproj" />
+    <ProjectReference Include="..\HarmOsWin.Transport\HarmOsWin.Transport.csproj" />
+  </ItemGroup>
+
+  <!--
+    设备清单以**项目根**的 harmoswin.json 为唯一真源，构建时覆盖到输出目录。
+    2026-11-14 事故：bin 下留着一份 11-13 手工拷的旧副本（手机地址写 192.168.1.102 ——
+    按用户 2026-11-16 最终裁定这个 IP 其实是对的，问题不在 IP，而在旧副本整体内容过期），
+    它命中配置查找的第一优先级，改项目根的配置完全不生效 ——
+    表现是「手机图标消失、只投平板」，排查了半天。
+    PreserveNewest 保证内容一致时不重写，避免无谓的重编译。
+  -->
+  <ItemGroup>
+    <None Include="..\..\harmoswin.json" Link="harmoswin.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!--
+    agent.so 是 uitest 注入引擎（从 DevEco 自带 hosScrcpy jar 解出的 uitest_agent_1.2.3.so）。
+    它必须落在设备的 /data/local/tmp/agent.so，而该目录是 shell:shell 0771，应用进程写不进去，
+    所以只能随 PC 端分发、由 PC 侧 hdc 推送（NEXT-09）。
+
+    以 **EmbeddedResource** 嵌入程序集，而不是 Content 拷到输出目录 ——
+    这样单文件发布（PublishSingleFile）时它也在 exe 里，整个产品就是一个文件。
+    运行时由 MainWindow.ResolveAgentSoPath() 优先用旁边 assets/agent.so（开发场景），
+    找不到再从嵌入资源释放到 %LOCALAPPDATA%\HarmOsWin\。
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="assets\agent.so">
+      <LogicalName>agent.so</LogicalName>
+    </EmbeddedResource>
+    <!-- 参考方案免授权采集扩展（NativeStartScreenCopy，不弹录屏授权框）。
+         6.8-20260801 是本机平板唯一实测出流的版本；6.5/6.9 通道就绪但永不出帧。 -->
+    <EmbeddedResource Include="assets\screen_casting.so">
+      <LogicalName>screen_casting.so</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <!-- 单文件发布配置：本机已装 .NET 8 桌面运行时，所以用框架依赖模式，体积小很多。
+       注意 EnableCompressionInSingleFile 只在自包含模式下可用，框架依赖时开了会报 NETSDK1176。 -->
+  <PropertyGroup Condition="'$(PublishSingleFile)' == 'true'">
+    <SelfContained>false</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+
+  <!--
+    桥进程随 App 一起输出：WPF 侧通过它执行 hdc（规避 WPF 进程里 hdc 随机卡死）。
+
+    ⚠ 这里**不能**用 ProjectReference 带 OutputItemType=Content。
+    2026-11-15 实测：那样写会让 `dotnet publish -p:PublishSingleFile=true` 直接报
+      NETSDK1151 引用的项目是自包含的可执行文件，自包含不能由非自包含引用
+    —— 项目引用会走发布管线，把桥的「可执行」身份带进来，与 App 的框架依赖模式冲突，
+    整个单文件发布就此失效（而单文件 exe 是本项目的主力分发形态）。
+
+    改用显式的「先构建桥、再拷产物」两步（用 MSBuild 任务），全程只走文件拷贝，
+    不让桥进入 App 的发布管线。
+
+    ⚠ 只取 net8.0 根目录下的平铺文件，**不要** `**\*` 递归：
+    桥被 publish 过一次后，bin\Release\net8.0\ 下会出现 win-x64\ 等 RID 子目录，
+    递归通配会把这些多余副本一起拷进发布目录，形成 win-x64\HarmOsWin.HdcBridge.exe
+    这种无意义嵌套（2026-11-15 实测踩到）。
+  -->
+  <PropertyGroup>
+    <HdcBridgeDir>$(MSBuildThisFileDirectory)..\HarmOsWin.HdcBridge</HdcBridgeDir>
+    <HdcBridgeOut>$(HdcBridgeDir)\bin\$(Configuration)\net8.0</HdcBridgeOut>
+  </PropertyGroup>
+
+  <!--
+    ⚠ 2026-11-16：`dotnet publish -r win-x64 -p:PublishSingleFile=true` 会把
+    RuntimeIdentifier=win-x64 作为**全局属性**渗进这个 MSBuild 子调用，桥项目是纯 net8.0
+    （assets 里只有 net8.0 目标），于是报
+      NETSDK1047: 资产文件没有 "net8.0/win-x64" 的目标
+    —— 整轮发布直接失败。桥的 RID 必须和 App 的单文件 RID 解耦：显式移除这些发布属性，
+    让它始终按无 RID 的控制台 exe 构建，产物仍落在 bin\$(Configuration)\net8.0\。
+  -->
+  <Target Name="BuildHdcBridge" BeforeTargets="Build">
+    <MSBuild Projects="$(HdcBridgeDir)\HarmOsWin.HdcBridge.csproj"
+             Targets="Build"
+             RemoveProperties="RuntimeIdentifier;SelfContained;PublishSingleFile;PublishDir"
+             Properties="Configuration=$(Configuration);TargetFramework=net8.0" />
+    <ItemGroup>
+      <HdcBridgeArtifact Include="$(HdcBridgeOut)\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(HdcBridgeArtifact)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- 发布时同样要把桥带过去：单文件发布只打包 App 自己，桥是独立 exe。 -->
+  <Target Name="PublishHdcBridge" AfterTargets="Publish">
+    <ItemGroup>
+      <HdcBridgePublished Include="$(HdcBridgeOut)\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(HdcBridgePublished)"
+          DestinationFolder="$(PublishDir)"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>

@@ -1,0 +1,1650 @@
+{
+  "schema": "index/v1",
+  "project": "HarmOs-Win",
+  "updated_at": "2026-11-11T00:05:00+08:00",
+  "usage": "Search entries[].keys (Chinese or English), then open entries[].path and look for entries[].symbol",
+  "entries": [
+    {
+      "id": "doc-agents",
+      "type": "doc",
+      "keys": [
+        "契约",
+        "规则",
+        "invariant",
+        "DoD",
+        "agents",
+        "工程约定"
+      ],
+      "path": "AGENTS.json",
+      "symbol": "invariants / decisions / verification_gates",
+      "summary": "工程契约：13 条硬性约束、8 条决策（DEC-08 已结案）、7 个验证门（GATE-06 基线通过待复测）"
+    },
+    {
+      "id": "doc-index",
+      "type": "doc",
+      "keys": [
+        "索引",
+        "关键词",
+        "定位",
+        "index"
+      ],
+      "path": "INDEX.json",
+      "symbol": "entries",
+      "summary": "关键词到文件与符号的映射表"
+    },
+    {
+      "id": "doc-progress",
+      "type": "doc",
+      "keys": [
+        "进度",
+        "待办",
+        "恢复",
+        "progress",
+        "resume"
+      ],
+      "path": "PROGRESS.json",
+      "symbol": "current_state / pending_actions / risks_notes",
+      "summary": "会话恢复状态：当前阶段、已完成、待办、风险"
+    },
+    {
+      "id": "doc-kzj",
+      "type": "doc",
+      "keys": [
+        "提示词",
+        "模板",
+        "开工",
+        "收尾",
+        "kzj"
+      ],
+      "path": "KZJ.md",
+      "symbol": "三段式模板",
+      "summary": "开工/中间/收尾三段对话模板"
+    },
+    {
+      "id": "doc-readme",
+      "type": "doc",
+      "keys": [
+        "说明",
+        "快速开始",
+        "readme",
+        "关键词表"
+      ],
+      "path": "README.md",
+      "symbol": "关键词索引",
+      "summary": "人读说明，关键词表必须与 INDEX 一一对应"
+    },
+    {
+      "id": "ref-projects",
+      "type": "doc",
+      "keys": [
+        "参考项目",
+        "ohscrcpy",
+        "hnscrcpy",
+        "HOScrcpy",
+        "lanlink",
+        "oink",
+        "许可证"
+      ],
+      "path": "docs/参考项目-能力清单.md",
+      "symbol": "逐需求对照 / 可复用模块索引 / 许可证红线",
+      "summary": "五个参考项目的能力对照与可复用模块路径"
+    },
+    {
+      "id": "tool-hdcw",
+      "type": "tool",
+      "keys": [
+        "无线调试",
+        "hdc",
+        "封装",
+        "串行",
+        "端口",
+        "hdcw",
+        "USB 例外",
+        "息屏覆盖",
+        "keepon"
+      ],
+      "path": "scripts/hdcw.sh",
+      "symbol": "shell / send / recv / install / port / status / mode / keepon / keepoff / screenoff",
+      "summary": "hdc 统一入口：无线自动 tconn、串行锁、路径保护；已修复 tconn 已连接返回值误判"
+    },
+    {
+      "id": "env-devices",
+      "type": "env",
+      "keys": [
+        "设备",
+        "平板",
+        "手机",
+        "MLR-AL00",
+        "Pura X",
+        "分辨率"
+      ],
+      "path": "AGENTS.json",
+      "symbol": "facts.devices",
+      "summary": "测试设备型号、分辨率、无线调试地址"
+    },
+    {
+      "id": "risk-screensaver",
+      "type": "risk",
+      "keys": [
+        "息屏",
+        "锁屏",
+        "保活",
+        "黑屏",
+        "视觉息屏",
+        "GATE-01",
+        "INV-05 降级"
+      ],
+      "path": "AGENTS.json",
+      "symbol": "invariants INV-05 / verification_gates.GATE-01",
+      "summary": "用户已批准降级为视觉息屏：屏幕肉眼黑、采集仍出帧；禁止合成层黑遮罩"
+    },
+    {
+      "id": "decision-stack",
+      "type": "decision",
+      "keys": [
+        "技术选型",
+        "语言",
+        "ArkTS",
+        "C#",
+        "WPF",
+        "NAPI"
+      ],
+      "path": "AGENTS.json",
+      "symbol": "invariants INV-11 / decisions DEC-01",
+      "summary": "平板端 ArkTS+C++，电脑端 C#/.NET8+WPF"
+    },
+    {
+      "id": "module-tablet",
+      "type": "module",
+      "keys": [
+        "平板端",
+        "工程",
+        "tablet",
+        "entry",
+        "bundle",
+        "HarmLink"
+      ],
+      "path": "tablet/entry/src/main/ets/pages/Index.ets",
+      "symbol": "Index",
+      "summary": "平板端 HAP 入口页，含 GATE-01 / GATE-L0 / 统一会话三个入口"
+    },
+    {
+      "id": "probe-gate01",
+      "type": "feature",
+      "keys": [
+        "息屏探针",
+        "GATE01",
+        "采集",
+        "AVScreenCapture",
+        "ScreenCaptureProbe",
+        "帧"
+      ],
+      "path": "tablet/entry/src/main/ets/probe/ScreenCaptureProbe.ets",
+      "symbol": "ScreenCaptureProbe.start / sample / stopInternal",
+      "summary": "息屏采集验证：AVScreenCaptureRecorder 录到文件，每 500ms 采样文件大小判断是否停流"
+    },
+    {
+      "id": "decision-link",
+      "type": "decision",
+      "keys": [
+        "链路",
+        "UDP",
+        "P2P",
+        "Wi-Fi Direct",
+        "心跳",
+        "GATE-L0",
+        "GATE-L1",
+        "INV-12"
+      ],
+      "path": "AGENTS.json",
+      "symbol": "invariants INV-12 / decisions DEC-06 / verification_gates.GATE-L0",
+      "summary": "链路分阶段：LAN 上 UDP 双通道+心跳达标即不上 P2P"
+    },
+    {
+      "id": "session-1108",
+      "type": "session",
+      "keys": [
+        "会话",
+        "2026-11-08",
+        "决策记录",
+        "session"
+      ],
+      "path": "SESSIONS/2026-11-08.json",
+      "symbol": "decisions / changes / verification",
+      "summary": "INV-05 降级、链路分阶段、华为架构还原、GATE-S1/L0/L1 与 NEXT-02~06 全轮记录"
+    },
+    {
+      "id": "spec-hwp",
+      "type": "doc",
+      "keys": [
+        "HWP",
+        "包头",
+        "MTU",
+        "协议规格",
+        "通道语义",
+        "控制命令"
+      ],
+      "path": "docs/传输层协议-HWP-v1.md",
+      "symbol": "§2 包头 / §3 通道语义 / §4 控制命令 / §7 判定",
+      "summary": "双端逐字节对齐的 HWP v1 规格：16B 包头、1200B MTU、视频不可靠/控制可靠/30ms 保活"
+    },
+    {
+      "id": "transport-arkts-packet",
+      "type": "feature",
+      "keys": [
+        "ArkTS 编解码",
+        "DataView",
+        "时间戳回绕",
+        "魔数"
+      ],
+      "path": "tablet/entry/src/main/ets/transport/HwpPacket.ets",
+      "symbol": "HwpPacket.build / parse / payloadOf / hwpElapsed",
+      "summary": "源端包头编解码与全部协议常量（含 v1.1 命令字），唯一定义处"
+    },
+    {
+      "id": "transport-arkts-udp",
+      "type": "feature",
+      "keys": [
+        "源端传输",
+        "UDPSocket",
+        "视频模拟负载",
+        "模式切换"
+      ],
+      "path": "tablet/entry/src/main/ets/transport/UdpTransport.ets",
+      "symbol": "UdpTransport.start / stop / setControlHandler / sendControl / sendStreamFrame",
+      "summary": "源端 UDP 双通道：心跳、控制派发、ACK、CH_STREAM 真实码流分片"
+    },
+    {
+      "id": "page-l0",
+      "type": "feature",
+      "keys": [
+        "网络探针页",
+        "L0 服务",
+        "统计面板"
+      ],
+      "path": "tablet/entry/src/main/ets/pages/NetworkProbePage.ets",
+      "symbol": "NetworkProbePage.toggle / refreshStats",
+      "summary": "GATE-L0 独立页面，与 GATE-01 探针隔离，可随时回归"
+    },
+    {
+      "id": "transport-csharp",
+      "type": "feature",
+      "keys": [
+        "C# 传输层",
+        "ReliableControlChannel",
+        "RttSampler",
+        "HwpEndpoint",
+        "dotnet"
+      ],
+      "path": "pc/HarmOsWin.Transport/Channels.cs",
+      "symbol": "VideoReceiveChannel / RttSampler / ReliableControlChannel / HwpEndpoint",
+      "summary": "宿主端 .NET8 类库：视频丢包统计、控制窗口1+ACK、RTT 分位数、UDP 端点"
+    },
+    {
+      "id": "probe-csharp",
+      "type": "tool",
+      "keys": [
+        "测量控制台",
+        "三阶段",
+        "判定",
+        "结果 JSON"
+      ],
+      "path": "pc/HarmOsWin.Probe/Program.cs",
+      "symbol": "Program (IDLE/LIGHT/FULL 三阶段)",
+      "summary": "GATE-L0 测量控制台；args[0]=gate02 时转交 Gate02.RunAsync"
+    },
+    {
+      "id": "tool-l0probe",
+      "type": "tool",
+      "keys": [
+        "一键测量",
+        "包装脚本",
+        "l0_probe"
+      ],
+      "path": "scripts/l0_probe.py",
+      "symbol": "main / build / dotnet_exe",
+      "summary": "一键测量入口，自动定位用户目录 .NET8 SDK"
+    },
+    {
+      "id": "doc-pc",
+      "type": "doc",
+      "keys": [
+        "PC 说明",
+        "编译环境",
+        "NET8",
+        "运行步骤"
+      ],
+      "path": "pc/README.md",
+      "symbol": "目录 / 环境 / 编译 / 运行 / 判定",
+      "summary": "PC 端四个项目结构、编译命令与 gate02/gate03 运行步骤"
+    },
+    {
+      "id": "evidence-l0",
+      "type": "evidence",
+      "keys": [
+        "L0 实测",
+        "延迟报告",
+        "PASS",
+        "丢包统计"
+      ],
+      "path": "tmp/l0_result.json",
+      "symbol": "verdict / phases[IDLE,LIGHT,FULL]",
+      "summary": "GATE-L0 权威报告：PASS，IDLE p95=140ms → LIGHT 16ms / FULL 31ms"
+    },
+    {
+      "id": "doc-arch",
+      "type": "doc",
+      "keys": [
+        "架构事实源",
+        "模块分层",
+        "数据流",
+        "架构变更",
+        "architecture_doc"
+      ],
+      "path": "docs/架构-HarmOs-Win.md",
+      "symbol": "§0 变更定义 / §1 分层 / §2 目录 / §6 GATE 状态 / §7 变更记录",
+      "summary": "架构单一事实源；改模块边界、协议语义、跨端接口必须同步本文件"
+    },
+    {
+      "id": "spec-hwp11",
+      "type": "doc",
+      "keys": [
+        "CH_STREAM",
+        "v1.1 扩展",
+        "自适应重传",
+        "握手顺序"
+      ],
+      "path": "docs/传输层协议-HWP-v1.md",
+      "symbol": "§8 v1.1 扩展 / §8.3 RTO / §8.4 握手顺序",
+      "summary": "新增码流通道、8 个命令字、srtt+4*rttvar 自适应 RTO、先 CONTROL 后收流"
+    },
+    {
+      "id": "core-arkts-types",
+      "type": "feature",
+      "keys": [
+        "SessionTypes",
+        "WireCodec",
+        "防回环哈希",
+        "角色枚举"
+      ],
+      "path": "tablet/entry/src/main/ets/core/SessionTypes.ets",
+      "symbol": "WireCodec / fnv1a / utf8Encode / DeviceProfile",
+      "summary": "跨端共享模型与线格式：统一 InputEvent、角色、分辨率、FNV-1a、UTF-8"
+    },
+    {
+      "id": "core-arkts-service",
+      "type": "feature",
+      "keys": [
+        "SessionService",
+        "会话编排",
+        "剪贴板推送",
+        "码流分片"
+      ],
+      "path": "tablet/entry/src/main/ets/core/SessionService.ets",
+      "symbol": "SessionService.start / onControl / streamTick / pushClipText",
+      "summary": "设备端会话编排：能力注册、码流推送、输入/导航/剪贴板派发、分辨率变更"
+    },
+    {
+      "id": "capture-source",
+      "type": "feature",
+      "keys": [
+        "IVideoSource",
+        "FileVideoSource",
+        "DisplayProfile",
+        "折叠变更"
+      ],
+      "path": "tablet/entry/src/main/ets/capture/VideoSource.ets",
+      "symbol": "IVideoSource / FileVideoSource / NativeVideoSource / DisplayProfile",
+      "summary": "采集层抽象：文件源验证传输链路，C++ NAPI 实时源为未接入实现"
+    },
+    {
+      "id": "page-session",
+      "type": "feature",
+      "keys": [
+        "统一会话页",
+        "SessionPage",
+        "NEXT-02"
+      ],
+      "path": "tablet/entry/src/main/ets/pages/SessionPage.ets",
+      "symbol": "SessionPage.toggle / refreshStats",
+      "summary": "NEXT-02~06 设备端统一入口，显示帧数/输入/导航/剪贴板/角色/分辨率"
+    },
+    {
+      "id": "core-csharp-injector",
+      "type": "feature",
+      "keys": [
+        "InputInjector",
+        "InputEvent",
+        "uitest 通道",
+        "uinput 通道"
+      ],
+      "path": "pc/HarmOsWin.Core/InputInjector.cs",
+      "symbol": "IInputChannel / UitestChannel / UinputChannel / InputInjector",
+      "summary": "统一输入事件抽象与两条注入通道；所有 hdc 调用由信号量严格串行"
+    },
+    {
+      "id": "core-csharp-clipboard",
+      "type": "feature",
+      "keys": [
+        "Win32Clipboard",
+        "ClipboardBridge",
+        "PNG 无损",
+        "FNV-1a"
+      ],
+      "path": "pc/HarmOsWin.Core/ClipboardBridge.cs",
+      "symbol": "Win32Clipboard.SetText/SetPng / ClipboardBridge.Start",
+      "summary": "Win32 剪贴板最小封装 + 内容哈希防回环；图片用自定义格式存 PNG 原始字节"
+    },
+    {
+      "id": "core-csharp-session",
+      "type": "feature",
+      "keys": [
+        "DeviceSession",
+        "SessionManager",
+        "角色协商",
+        "多标签切换"
+      ],
+      "path": "pc/HarmOsWin.Core/DeviceSession.cs",
+      "symbol": "DeviceSession.ConnectAsync / SessionManager.Add / Switch",
+      "summary": "INV-08 同构源/宿主端接口、≤3 台会话、切换标签只改 ActiveId 不拆 UDP"
+    },
+    {
+      "id": "core-csharp-pipeline",
+      "type": "feature",
+      "keys": [
+        "IVideoDecoder",
+        "IRenderSurface",
+        "PassthroughDecoder",
+        "硬解占位"
+      ],
+      "path": "pc/HarmOsWin.Core/IVideoPipeline.cs",
+      "symbol": "IVideoDecoder / MediaFoundationDecoder / IRenderSurface",
+      "summary": "解码上屏接口；PassthroughDecoder 验证链路，MF 硬解为明确标注的未接入占位"
+    },
+    {
+      "id": "app-wpf",
+      "type": "module",
+      "keys": [
+        "单窗口多标签",
+        "三键导航",
+        "锁屏页",
+        "MainWindow"
+      ],
+      "path": "pc/HarmOsWin.App/MainWindow.cs",
+      "symbol": "MainWindow / Program.Main",
+      "summary": "WPF 单窗口多标签、返回/主页/多任务、Q' 本地锁屏页、实时指标栏"
+    },
+    {
+      "id": "probe-gate02",
+      "type": "tool",
+      "keys": [
+        "gate02",
+        "端到端控制台",
+        "帧重组报告"
+      ],
+      "path": "pc/HarmOsWin.Probe/Gate02.cs",
+      "symbol": "Gate02.RunAsync",
+      "summary": "握手→输入→导航→剪贴板→CH_STREAM 码流全链路验证，输出 tmp/gate02_result.json"
+    },
+    {
+      "id": "tool-gate03",
+      "type": "tool",
+      "keys": [
+        "gate03_probe",
+        "注入延迟对比",
+        "tconn 重连"
+      ],
+      "path": "scripts/gate03_probe.py",
+      "symbol": "invoke / summarize / main",
+      "summary": "串行对比 uitest/uinput 注入耗时，按设备侧输出判定成功，输出 tmp/gate03_result.json"
+    },
+    {
+      "id": "transport-rto",
+      "type": "feature",
+      "keys": [
+        "RtoEstimator",
+        "VideoAssembler",
+        "RTO 估计",
+        "码流重组"
+      ],
+      "path": "pc/HarmOsWin.Transport/Channels.cs",
+      "symbol": "RtoEstimator.RtoMs / VideoAssembler.OnPacket",
+      "summary": "srtt+4*rttvar 自适应 RTO；CH_STREAM 分片重组，丢包即丢整帧不等待"
+    },
+    {
+      "id": "evidence-gate02",
+      "type": "evidence",
+      "keys": [
+        "GATE-02 实测",
+        "235 帧",
+        "零丢帧"
+      ],
+      "path": "tmp/gate02_result.json",
+      "symbol": "handshake / control / stream / verdict",
+      "summary": "真机：235 帧 / 1105440B / 940 包，丢帧 0；输入 10/10、导航 3/3、剪贴板均 ACK"
+    },
+    {
+      "id": "evidence-gate03",
+      "type": "evidence",
+      "keys": [
+        "GATE-03 实测",
+        "DEC-08",
+        "注入通道失败"
+      ],
+      "path": "tmp/gate03_result.json",
+      "symbol": "channels[uitest,uinput] / gate_verdict",
+      "summary": "真机：uitest p50=2552.6ms、uinput 0/4 成功，判定 DEC-02 不成立，需重新选型"
+    },
+    {
+      "id": "core-arkts-inputinjector",
+      "type": "feature",
+      "keys": [
+        "设备端注入探针",
+        "inputEventClient",
+        "TouchController",
+        "801 错误码",
+        "InputSimulator"
+      ],
+      "path": "tablet/entry/src/main/ets/core/InputInjector.ets",
+      "symbol": "InputInjector.inject / SYSCAP_INPUT_SIMULATOR",
+      "summary": "GATE-05 设备端本地注入探针：canIUse + createTouchController + touchDown/Up，回传 InjectReport"
+    },
+    {
+      "id": "probe-gate05",
+      "type": "tool",
+      "keys": [
+        "gate05",
+        "注入探针控制台",
+        "端到端注入延迟",
+        "握手重试"
+      ],
+      "path": "pc/HarmOsWin.Probe/Gate05.cs",
+      "symbol": "Gate05.RunAsync / Percentile",
+      "summary": "握手→N 次 CMD_INPUT→收集 CMD_INJECT_RESULT→统计成功率/错误码/本地与端到端延迟"
+    },
+    {
+      "id": "spec-inject-result",
+      "type": "doc",
+      "keys": [
+        "CMD_INJECT_RESULT",
+        "0x80 命令字",
+        "InjectReport 线格式",
+        "19B 定长"
+      ],
+      "path": "docs/传输层协议-HWP-v1.md",
+      "symbol": "§8 命令表 / §8.5 注入结果回传",
+      "summary": "探针专用 CONTROL 回传：syscap/ok/errCode/stage/elapsedUs/attempts/success"
+    },
+    {
+      "id": "decision-gate05",
+      "type": "decision",
+      "keys": [
+        "CONTROL_DEVICE",
+        "2in1 设备形态白名单",
+        "ACL profile",
+        "无障碍手势注入",
+        "GATE-05"
+      ],
+      "path": "AGENTS.json",
+      "symbol": "facts.measured.control_device_permission / decisions DEC-08 / verification_gates.GATE-05",
+      "summary": "DEC-08 部分结案：原生注入 801、权限 -1、ACL 不适用；仅剩无障碍手势注入候选"
+    },
+    {
+      "id": "evidence-gate05",
+      "type": "evidence",
+      "keys": [
+        "GATE-05 实测",
+        "20/20 注入失败",
+        "权限未授予 -1"
+      ],
+      "path": "tmp/gate05_r2.json",
+      "symbol": "verdict / errCodes / syscapOk / endToEndMs",
+      "summary": "权威报告：两轮各 10 次，注入 0/20、801 全部、syscap 全部 true、端到端 p50=29.18ms"
+    },
+    {
+      "id": "evidence-gate05-device",
+      "type": "evidence",
+      "keys": [
+        "注入统计截图",
+        "设备端 801 日志"
+      ],
+      "path": "tmp/g5_r2_result.jpeg",
+      "symbol": "统计行 / 日志 10 条注入 FAIL",
+      "summary": "设备端 UI 显示「注入 OK 0 err=801 1.0ms syscap=1」与 10 条 FAIL 日志，与 PC 报告吻合"
+    },
+    {
+      "id": "decision-dec08-closed",
+      "type": "decision",
+      "keys": [
+        "INV-13",
+        "需求 2 降级",
+        "三键导航 低频点击",
+        "DEC-08 结案"
+      ],
+      "path": "AGENTS.json",
+      "symbol": "invariants INV-13 / decisions DEC-08 / verification_gates GATE-03,GATE-05",
+      "summary": "用户明确批准反控能力收窄为三键导航 + 低频点击；高频注入不再作为交付范围"
+    },
+    {
+      "id": "gate-06",
+      "type": "gate",
+      "keys": [
+        "GATE-06",
+        "低频判据 200ms",
+        "无障碍落地",
+        "AccessibilityExtensionAbility"
+      ],
+      "path": "AGENTS.json",
+      "symbol": "verification_gates.GATE-06",
+      "summary": "2026-11-08 已 PASS：uitest 持久 socket RPC（@uitest_socket + hdc fport localabstract），单点 p50 74.97ms / p95 90.42ms。取证 tmp/gate06rpc.json，实现见 pc/HarmOsWin.Core/UitestRpcClient.cs。此前「本 ROM 不提供该通道」已订正。"
+    },
+    {
+      "id": "accessibility-bridge",
+      "type": "feature",
+      "keys": [
+        "本地低频桥",
+        "LowFreqBridge",
+        "loopback 9021",
+        "250ms 超时",
+        "服务未响应 -2"
+      ],
+      "path": "tablet/entry/src/main/ets/accessibility/LowFreqBridge.ets",
+      "symbol": "LowFreqBridge.start / send / BRIDGE_TIMEOUT_MS",
+      "summary": "主 HAP 与无障碍扩展服务间的 loopback UDP 桥；服务未开启时 250ms 超时回传 -2"
+    },
+    {
+      "id": "accessibility-extability",
+      "type": "feature",
+      "keys": [
+        "AccessibilityExtAbility",
+        "accessibility_config",
+        "无障碍扩展服务",
+        "performAction 归属"
+      ],
+      "path": "tablet/entry/src/main/ets/accessibility/AccessibilityExtAbility.ets",
+      "symbol": "LowFreqAccessibility.onConnect / runAction / reply",
+      "summary": "执行三键(root.performAction)与单点(injectGestureSync)，结果 19B 发回 9022"
+    },
+    {
+      "id": "probe-gate06",
+      "type": "tool",
+      "keys": [
+        "gate06",
+        "低频输入控制台",
+        "三键 单点判据",
+        "200ms 门限"
+      ],
+      "path": "pc/HarmOsWin.Probe/Gate06.cs",
+      "symbol": "Gate06.RunAsync",
+      "summary": "NEXT-07 验证控制台：5 次单点 + 3 个三键，判据动作可达且单次端到端 <200ms"
+    },
+    {
+      "id": "evidence-gate06-baseline",
+      "type": "evidence",
+      "keys": [
+        "GATE-06 基线",
+        "8/8 回传",
+        "serviceConnected false"
+      ],
+      "path": "tmp/gate06_baseline.json",
+      "symbol": "verdict / errCodes / stages / serviceConnected",
+      "summary": "基线：握手 PASS、8/8 ACK、8/8 回传，但全部 -2、服务未连，探针链路已通"
+    },
+    {
+      "id": "native-capture",
+      "type": "code",
+      "keys": [
+        "C++ NAPI",
+        "OH_AVScreenCapture",
+        "OH_VideoEncoder",
+        "StartScreenCaptureWithSurface",
+        "TSFN",
+        "实时采集",
+        "编码"
+      ],
+      "path": "tablet/entry/src/main/cpp/harmoscap.cpp",
+      "symbol": "StartCapture / StopCapture / GetStats / CallJs",
+      "summary": "设备端真采真编：屏幕采集直连编码器输入 Surface，H.264 Annex-B 经线程安全函数回传 ArkTS"
+    },
+    {
+      "id": "native-build",
+      "type": "config",
+      "keys": [
+        "CMakeLists",
+        "externalNativeOptions",
+        "libharmoscap",
+        "abiFilters"
+      ],
+      "path": "tablet/entry/src/main/cpp/CMakeLists.txt",
+      "symbol": "target_link_libraries(libnative_avscreen_capture / libnative_media_venc / libnative_media_codecbase / libnative_media_core)",
+      "summary": "native 构建配置；少链 codecbase 会导致 OH_MD_KEY_* 与 MIME 常量 undefined symbol"
+    },
+    {
+      "id": "native-video-source",
+      "type": "code",
+      "keys": [
+        "NativeVideoSource",
+        "setFrameSink",
+        "推流",
+        "实时源"
+      ],
+      "path": "tablet/entry/src/main/ets/capture/VideoSource.ets",
+      "symbol": "NativeVideoSource.start / onFrame / setFrameSink",
+      "summary": "ArkTS 侧包装：编码帧回到 JS 线程即推，失败时把 native 返回码 1~12 原样抛出"
+    },
+    {
+      "id": "mf-interop",
+      "type": "code",
+      "keys": [
+        "Media Foundation",
+        "COM interop",
+        "IMFTransform",
+        "MFT_OUTPUT_DATA_BUFFER",
+        "vtable"
+      ],
+      "path": "pc/HarmOsWin.Core/MfInterop.cs",
+      "symbol": "IMFTransform / IMFMediaType / MfApi",
+      "summary": "MF COM 声明；vtable 顺序与封送特性是踩坑点（LPArray、SAFEARRAY 0x80131165）"
+    },
+    {
+      "id": "mf-decoder",
+      "type": "code",
+      "keys": [
+        "MF 硬解",
+        "H.264 解码",
+        "NV12",
+        "BGRA",
+        "CMSH264DecoderMFT"
+      ],
+      "path": "pc/HarmOsWin.Core/MfH264Decoder.cs",
+      "symbol": "MediaFoundationDecoder.Feed / DecodeOneLocked / Nv12ToBgra(src,dst,w,h,stride,bufH)",
+      "summary": "硬解实现：自建输出样本、vtable 取值、NV12→BGRA。2026-11-10 增加**按内容尺寸裁剪**，修掉 16px 宏块对齐填充导致的纯绿边；⚠️ Nv12ToBgra 的 UV 平面偏移必须用缓冲高度 bufH 而非裁剪高度 h，否则色度错位且不报错"
+    },
+    {
+      "id": "h264-sps",
+      "type": "code",
+      "keys": [
+        "SPS",
+        "分辨率自举",
+        "exp-golomb"
+      ],
+      "path": "pc/HarmOsWin.Core/H264Sps.cs",
+      "symbol": "H264Sps.TryParse",
+      "summary": "从关键帧 SPS 解析分辨率，解码器不再依赖 CMD_RESOLUTION（重连/中途加入可用）"
+    },
+    {
+      "id": "gate02-live-probe",
+      "type": "code",
+      "keys": [
+        "gate02live",
+        "实时验证",
+        "首帧延迟",
+        "fps"
+      ],
+      "path": "pc/HarmOsWin.Probe/Gate02Live.cs",
+      "symbol": "Gate02Live.RunAsync",
+      "summary": "真机实时链路量化：帧数/字节/丢包/解码帧率/首帧耗时，并落盘一段真实 .h264"
+    },
+    {
+      "id": "mfde-offline",
+      "type": "code",
+      "keys": [
+        "mfde",
+        "离线解码",
+        "访问单元"
+      ],
+      "path": "pc/HarmOsWin.Probe/MfDecodeFile.cs",
+      "symbol": "MfDecodeFile.Run / SplitAccessUnits",
+      "summary": "离线调试命令：不吃真机，直接把 .h264 喂给解码器并输出首帧 BMP"
+    },
+    {
+      "id": "evidence-gate02-live",
+      "type": "evidence",
+      "keys": [
+        "GATE-02 实时",
+        "161 帧",
+        "6.4fps",
+        "首帧 14.9s"
+      ],
+      "path": "tmp/gate02live.json",
+      "symbol": "transport / decode / verdict",
+      "summary": "[口径已作废] 旧统计把授权等待与静止段算进分母，得出 6.4fps；真实能力见 evidence-gate02-live4"
+    },
+    {
+      "id": "evidence-gate02-frame",
+      "type": "evidence",
+      "keys": [
+        "解码画面",
+        "首帧 BMP",
+        "人工核对"
+      ],
+      "path": "tmp/gate02_frame_preview.jpg",
+      "symbol": "解码输出的屏幕画面缩略图",
+      "summary": "MF 硬解得到的真实屏幕内容，已人工确认非黑屏非花屏（最新一帧见 gate02_frame4.bmp）"
+    },
+    {
+      "id": "evidence-gate02-live4",
+      "type": "evidence",
+      "keys": [
+        "GATE-02 复测",
+        "peakFps 62",
+        "activeFps 51.14",
+        "1507 帧",
+        "0 解码错误",
+        "23.3Mbps",
+        "首帧 10.77s"
+      ],
+      "path": "tmp/gate02live4.json",
+      "symbol": "decode.peakFps / decode.activeFps / transport",
+      "summary": "真机 40s 动态画面 PASS：peakFps=62、activeFps=51.14、丢包 0.46%、txErr=0；首帧链路耗时仅 0.87s"
+    },
+    {
+      "id": "evidence-gate02-frame4",
+      "type": "evidence",
+      "keys": [
+        "实时画面",
+        "1600x2560"
+      ],
+      "path": "",
+      "symbol": "MF 硬解首帧",
+      "summary": "native 直发版本解出的画面，内容正确、无花屏无撕裂；原始 tmp/gate02_frame4.bmp 已于 2026-11-16 20:08 随大块媒体证据清理送回收站，结论数字仍有效，还原依据 tmp/media_evidence_delete_20261116.json"
+    },
+    {
+      "id": "api-native-direct-send",
+      "type": "api",
+      "keys": [
+        "setStreamPeer",
+        "setDirectSend",
+        "native 直发",
+        "harmoscap",
+        "分片 sendto"
+      ],
+      "path": "tablet/entry/src/main/cpp/harmoscap.cpp",
+      "symbol": "SetStreamPeer / SetDirectSend / SendFrameDirect",
+      "summary": "实时码流在编码器回调线程内直接按 HWP 分片 sendto，绕开 JS 线程；独立 socket + SO_SNDBUF 4MB + O_NONBLOCK"
+    },
+    {
+      "id": "probe-fps-metric",
+      "type": "api",
+      "keys": [
+        "peakFps",
+        "activeFps",
+        "帧率口径"
+      ],
+      "path": "pc/HarmOsWin.Probe/Gate02Live.cs",
+      "symbol": "frameTicks / peakFps / activeFps",
+      "summary": "帧率必须按 peakFps（最大 1 秒窗口）与 activeFps（首帧到末帧）统计，avgFps 会被授权等待与静止段稀释"
+    },
+    {
+      "id": "evidence-gate02-smooth",
+      "type": "evidence",
+      "keys": [
+        "60fps 上屏",
+        "activeFps 59.84",
+        "p99 31ms",
+        "0 丢包",
+        "延迟 8.5ms"
+      ],
+      "path": "tmp/diag1.json",
+      "symbol": "decode.activeFps / transport.videoLost / decode.latencyAvgMs",
+      "summary": "流畅度验收：PC 窗口 presentFps 中位 60、探针 activeFps=59.84、p99 帧间隔 31ms、丢包 0、端到端 8.5ms、解码 0 错误"
+    },
+    {
+      "id": "api-pause-resume",
+      "type": "api",
+      "keys": [
+        "setStreamActive",
+        "暂停发送",
+        "免重新授权",
+        "请求 IDR"
+      ],
+      "path": "tablet/entry/src/main/cpp/harmoscap.cpp",
+      "symbol": "SetStreamActive",
+      "summary": "停止推流只暂停发送（采集/编码继续跑），恢复时主动请求 IDR；避免重新弹录屏授权白等 9.9s"
+    },
+    {
+      "id": "pc-decode-thread",
+      "type": "api",
+      "keys": [
+        "收包解码分离",
+        "RCVBUF 8MB",
+        "只保留最新帧"
+      ],
+      "path": "pc/HarmOsWin.Core/DeviceSession.cs",
+      "symbol": "FeedLoop / _pendingFrame / DecodeQueueDropped",
+      "summary": "收包线程只做重组，解码在独立线程单槽取最新帧；配合 8MB 收缓冲把丢包从 0.59% 降到 0"
+    },
+    {
+      "id": "device-resolution-beacon",
+      "type": "api",
+      "keys": [
+        "分辨率周期重报",
+        "startResolutionBeacon"
+      ],
+      "path": "tablet/entry/src/main/ets/core/SessionService.ets",
+      "symbol": "startResolutionBeacon / sendResolution",
+      "summary": "推流期间每 2s 重发 CMD_RESOLUTION，PC 中途接入才拿得到分辨率（SPS 兜底不可靠）"
+    },
+    {
+      "id": "evidence-gate02-resume",
+      "type": "evidence",
+      "keys": [
+        "恢复首帧 797ms",
+        "activeFps 59.96",
+        "暂停恢复"
+      ],
+      "path": "tmp/rs3.json",
+      "symbol": "decode.intervalP99Ms / HWP_RESUME_AT",
+      "summary": "稳态 activeFps=59.96 / p99=31ms / 0 丢包 / 0 解码错误；暂停→恢复首帧 797ms"
+    },
+    {
+      "id": "api-idr-replay",
+      "type": "api",
+      "keys": [
+        "缓存 IDR",
+        "重放",
+        "ScheduleTrailingReplay",
+        "恢复推流"
+      ],
+      "path": "tablet/entry/src/main/cpp/harmoscap.cpp",
+      "symbol": "ScheduleTrailingReplay / ReplayCachedIdr / g_lastIdr",
+      "summary": "编码回调缓存最近同步帧，恢复推流时立即重放 + 三次追加重放，沿用原始时间戳不污染延迟统计"
+    },
+    {
+      "id": "api-keepalive-session",
+      "type": "api",
+      "keys": [
+        "长时任务",
+        "KeepAlive",
+        "息屏保活"
+      ],
+      "path": "tablet/entry/src/main/ets/core/SessionService.ets",
+      "symbol": "SessionService.start(videoPath, ctx) / keepAliveStarted",
+      "summary": "正式会话启停长时任务（multiDeviceConnection + audioRecording），此前只有探针页有"
+    },
+    {
+      "id": "api-dim-window-brightness",
+      "type": "api",
+      "keys": [
+        "调暗屏幕",
+        "窗口亮度",
+        "视觉息屏降级"
+      ],
+      "path": "tablet/entry/src/main/ets/pages/SessionPage.ets",
+      "symbol": "toggleDim / applyBrightness / DIM_BRIGHTNESS",
+      "summary": "应用层只能靠 window.setWindowBrightness 在前台压暗背光（0.05），切后台失效；系统亮度无应用层 API"
+    },
+    {
+      "id": "cpp-idr-cache-paramsets",
+      "type": "native",
+      "keys": [
+        "IDR缓存",
+        "SPS/PPS",
+        "参数集",
+        "CODEC_DATA",
+        "自举"
+      ],
+      "path": "tablet/entry/src/main/cpp/harmoscap.cpp",
+      "symbol": "g_lastParamSets / g_lastIdr / OnEncodedBuffer",
+      "summary": "编码器把 SPS/PPS 单独成帧输出，缓存 IDR 时必须把参数集前置拼进去，否则 PC 新进程接入解不出画面"
+    },
+    {
+      "id": "cpp-pacing-replay",
+      "type": "native",
+      "keys": [
+        "pacing",
+        "分批重放",
+        "usleep",
+        "恢复首帧"
+      ],
+      "path": "tablet/entry/src/main/cpp/harmoscap.cpp",
+      "symbol": "SendFrameDirect(..., paced) / ScheduleTrailingReplay",
+      "summary": "追加重放每 8 包让出 200μs；只作用于重放，实时帧仍全速"
+    },
+    {
+      "id": "pc-resolution-dedup",
+      "type": "core",
+      "keys": [
+        "CMD_RESOLUTION",
+        "分辨率重报",
+        "去重",
+        "beacon"
+      ],
+      "path": "pc/HarmOsWin.Core/DeviceSession.cs",
+      "symbol": "HandleControl → Cmd.Resolution",
+      "summary": "设备每 2s 重报分辨率，仅在真正变化时才触发 ResolutionChanged"
+    },
+    {
+      "id": "pc-auto-snapshot-delay",
+      "type": "tool",
+      "keys": [
+        "验收",
+        "快照",
+        "snapshot",
+        "auto",
+        "会话日志"
+      ],
+      "path": "pc/HarmOsWin.App/MainWindow.cs",
+      "symbol": "--auto / --snapshot-delay / session.Log",
+      "summary": "自测模式可调快照时机并把会话日志打到控制台，避免快照拍在黑屏上误判"
+    },
+    {
+      "id": "svc-pause-resume",
+      "type": "arkts",
+      "keys": [
+        "暂停投屏",
+        "继续投屏",
+        "pauseStream",
+        "resumeStream",
+        "免授权"
+      ],
+      "path": "tablet/entry/src/main/ets/core/SessionService.ets",
+      "symbol": "pauseStream / resumeStream / startStream(幂等分支)",
+      "summary": "停止投屏只暂停发送，采集会话与长时任务保留；继续时走恢复分支，不重新申请录屏授权"
+    },
+    {
+      "id": "page-three-state",
+      "type": "arkts",
+      "keys": [
+        "三态",
+        "paused",
+        "capText",
+        "@State"
+      ],
+      "path": "tablet/entry/src/main/ets/pages/SessionPage.ets",
+      "symbol": "toggle / capText",
+      "summary": "运行中↔已暂停↔未启动三态；native 统计走 @State capText 才会刷新"
+    },
+    {
+      "id": "cpp-send-cached-idr-split",
+      "type": "native",
+      "keys": [
+        "参数集拆帧",
+        "SendCachedIdrSplit",
+        "追加重放",
+        "缓存关键帧"
+      ],
+      "path": "tablet/entry/src/main/cpp/harmoscap.cpp",
+      "symbol": "SendCachedIdrSplit / ScheduleTrailingReplay",
+      "summary": "重放时参数集单独成帧先发，主重放与追加重放共用同一实现；窗口 120~2500ms"
+    },
+    {
+      "id": "cpp-napi-double",
+      "type": "native",
+      "keys": [
+        "napi_create_int64",
+        "BigInt",
+        "double",
+        "getStats",
+        "NAPI 类型"
+      ],
+      "path": "tablet/entry/src/main/cpp/harmoscap.cpp",
+      "symbol": "GetStats / TSFN 回调",
+      "summary": "NAPI 数值一律用 double，int64 在 ArkTS 中变 BigInt 会抛类型异常"
+    },
+    {
+      "id": "pc-pending-frames",
+      "type": "core",
+      "keys": [
+        "挂起队列",
+        "待初始化",
+        "pending",
+        "分辨率未到"
+      ],
+      "path": "pc/HarmOsWin.Core/MfH264Decoder.cs",
+      "symbol": "_pending / FlushPendingLocked",
+      "summary": "分辨率未到时帧先挂起，分辨率或 SPS 到位后立即回放，不再丢弃"
+    },
+    {
+      "id": "ui-session-page",
+      "type": "ui",
+      "keys": [
+        "会话页",
+        "卡片式控制台",
+        "指标卡",
+        "状态胶囊",
+        "日志折叠",
+        "返回入口",
+        "UI"
+      ],
+      "path": "tablet/entry/src/main/ets/pages/SessionPage.ets",
+      "symbol": "SessionPage / statCard / infoChip / sessionCard",
+      "summary": "卡片式控制台：返回+品牌+状态胶囊 → 主控卡 → 2×2 指标卡 → 会话信息标签 → 可折叠日志；状态按 capState 分「等待 PC/投屏中/已暂停」"
+    },
+    {
+      "id": "ui-capture-metrics",
+      "type": "core",
+      "keys": [
+        "结构化指标",
+        "captureMetrics",
+        "帧率增量",
+        "码率增量",
+        "CapStats"
+      ],
+      "path": "tablet/entry/src/main/ets/core/SessionService.ets",
+      "symbol": "CaptureMetrics / captureMetrics()",
+      "summary": "把 native CapStats 转成结构化指标供 UI 使用，不再解析 getCaptureStats() 的拼接字符串；present=false 表示当前不是 native 实时源"
+    },
+    {
+      "id": "pc-ui-theme",
+      "type": "pc",
+      "keys": [
+        "PC 主题",
+        "深色配色",
+        "Ui/Theme.cs"
+      ],
+      "path": "pc/HarmOsWin.App/Ui/Theme.cs",
+      "symbol": "Theme",
+      "summary": "PC 端深色配色单一事实源（与平板 common/Theme.ets 同一套语义）；含冻结画刷与字体，避免每处 new SolidColorBrush"
+    },
+    {
+      "id": "pc-ui-controls",
+      "type": "pc",
+      "keys": [
+        "自绘按钮",
+        "FlatButton",
+        "StatTile",
+        "StatusPill",
+        "Ui/Controls.cs"
+      ],
+      "path": "pc/HarmOsWin.App/Ui/Controls.cs",
+      "symbol": "FlatButton / StatTile / StatusPill",
+      "summary": "Border 自绘控件：圆角按钮（hover/pressed/active/disabled 四态）、指标磁贴、状态胶囊；WPF 原生 chrome 改不了圆角配色所以不用 Button/TabControl 默认模板"
+    },
+    {
+      "id": "pc-mainwindow-layout",
+      "type": "pc",
+      "keys": [
+        "PC 主窗口布局",
+        "左侧设备栏",
+        "指标磁贴",
+        "设备列表切换"
+      ],
+      "path": "pc/HarmOsWin.App/MainWindow.cs",
+      "symbol": "MainWindow",
+      "summary": "左侧栏（品牌/设备输入与列表/推流/导航三键/锁屏）+ 右侧（标题+状态胶囊+分辨率+画面+五枚指标磁贴+细节行）；TabControl 换成设备列表 + 画面叠放 Visibility 切换，仍只切呈现不拆流"
+    },
+    {
+      "id": "pc-fit-window",
+      "type": "pc",
+      "keys": [
+        "贴合画面",
+        "FitWindowToDevice",
+        "画面占比",
+        "黑边",
+        "MiniStat",
+        "铺满",
+        "winscale",
+        "窗口倍数",
+        "2/3"
+      ],
+      "path": "pc/HarmOsWin.App/MainWindow.cs",
+      "symbol": "FitWindowToDevice / ToggleFill / ToggleSidebar / _fitScale",
+      "summary": "画面占比：侧栏可折叠（推流后自动收起）、指标改画面内 HUD、按设备宽高比一次算准窗口尺寸消除黑边、适应/铺满切换；MinWidth 必须小于贴合后的窄窗口宽度。2026-11-10 新增 --winscale（默认 2/3，画面区约 480×769）"
+    },
+    {
+      "id": "control-rto-init-fallback",
+      "type": "transport",
+      "keys": [
+        "RTO",
+        "ControlRtoInitMs",
+        "等待设备画面",
+        "CMD_STREAM",
+        "握手失败",
+        "streaming"
+      ],
+      "path": "pc/HarmOsWin.Transport/HwpPacket.cs",
+      "symbol": "Hwp.ControlRtoInitMs / RtoEstimator.RtoMs",
+      "summary": "无 RTT 样本时 RTO 兜底 200ms（原来 20ms 会让 4 次重传共 80ms 全部撞死在 82ms 平均 RTT 上，CMD_STREAM 判失败、PC 常显等待设备画面）"
+    },
+    {
+      "id": "window-aspect-lock",
+      "type": "pc",
+      "keys": [
+        "缩放锁比例",
+        "WM_SIZING",
+        "AspectRatio",
+        "拖动缩放",
+        "宽高比",
+        "_windowAspect"
+      ],
+      "path": "pc/HarmOsWin.App/MainWindow.cs",
+      "symbol": "OnWndProc / OnSourceInitialized / FitWindowToDevice",
+      "summary": "拖动缩放实时锁设备比例：WM_SIZING 改拖动矩形（handled 保持 false，否则窗口拉不动）+ SizeChanged 420ms 防抖兜底；最小尺寸整体缩放，避免 MinWidth/MinHeight 顶破比例"
+    },
+    {
+      "id": "capture-emits-on-change",
+      "type": "capture",
+      "keys": [
+        "画面静止",
+        "静止判定",
+        "变化才出帧",
+        "SlowScore",
+        "断流区分"
+      ],
+      "path": "pc/HarmOsWin.App/MainWindow.cs",
+      "symbol": "Refresh / Page.SlowScore",
+      "summary": "采集 surface 模式变化才出帧：静止 0~6fps、运动 28~37fps（已达标）。PC 用低帧率迟滞积分判「画面静止」，与断流/息屏区分，避免 0fps 被误当成卡死"
+    },
+    {
+      "id": "resize-no-refit",
+      "type": "pc",
+      "keys": [
+        "缩放弹回",
+        "弹回原大小",
+        "CorrectAspectIfNeeded",
+        "分辨率上报去重"
+      ],
+      "path": "pc/HarmOsWin.App/MainWindow.cs",
+      "symbol": "CorrectAspectIfNeeded / ResolutionChanged",
+      "summary": "手动缩放后不得重新贴合（会弹回最大尺寸）：防抖兜底只纠正比例、保留用户尺寸；ResolutionBeacon 周期重报的分辨率需去重"
+    },
+    {
+      "id": "encoder-repeat-previous-frame",
+      "type": "capture",
+      "keys": [
+        "重复上一帧",
+        "REPEAT_PREVIOUS_FRAME_AFTER",
+        "静止出帧",
+        "首帧慢",
+        "REPEAT_PREVIOUS_MAX_COUNT"
+      ],
+      "path": "tablet/entry/src/main/cpp/harmoscap.cpp",
+      "symbol": "buildFormat / OH_VideoEncoder_Configure",
+      "summary": "surface 模式无新帧时按 33ms 重复编码上一帧（frame_num/POC 递增）。根治 PC 重连首帧 10~13s，并让静止画面保持 30fps；configure 失败自动去掉两个 key 降级重试"
+    },
+    {
+      "id": "mf-needs-distinct-frames",
+      "type": "decode",
+      "keys": [
+        "MF 解不出",
+        "dec=0",
+        "重复帧",
+        "NEED_MORE_INPUT",
+        "0 帧 0 错误",
+        "首帧卡住"
+      ],
+      "path": "pc/HarmOsWin.Core/MfH264Decoder.cs",
+      "symbol": "FeedCore / DecodeOneLocked",
+      "summary": "CMSH264DecoderMFT 必须先累积内容不同的连续帧才出图：单帧 118KB、同一帧重复 8 次都是 0 帧 0 错误，真实连续帧 8 帧即出图。判「解不出」先查帧是否重复，别先怀疑码流"
+    },
+    {
+      "id": "decoder-idr-gate-and-paramsets",
+      "type": "decode",
+      "keys": [
+        "IDR 门闩",
+        "参数集缓存",
+        "裸 IDR 挂起",
+        "SPS 自举",
+        "needIdr"
+      ],
+      "path": "pc/HarmOsWin.Core/MfH264Decoder.cs",
+      "symbol": "FeedCore / _needIdr / _paramSets / _pendingIdr",
+      "summary": "没 IDR 前不喂 P 帧；参数集只缓存不喂 MFT（纯参数集 sample 会被当无效访问单元）；裸 IDR 挂起等参数集到齐再拼接回放，超 5s 兜底直喂"
+    },
+    {
+      "id": "session-singleton-keeps-consent",
+      "type": "lifecycle",
+      "keys": [
+        "录屏授权",
+        "免重弹",
+        "SessionService.shared",
+        "单例",
+        "会话常驻",
+        "CUSTOM_SCREEN_CAPTURE",
+        "结束投屏"
+      ],
+      "path": "tablet/entry/src/main/ets/core/SessionService.ets",
+      "symbol": "SessionService.shared / shared() / started / isAlive()",
+      "summary": "采集会话做成进程内单例，start() 幂等（已 started 只重报 ROLE+RESOLUTION，不重建 NativeVideoSource），页面 aboutToDisappear 只 pauseStream()；全量释放只在 SessionPage.finishSession() → session.stop()。配合 module.json5 的 CUSTOM_SCREEN_CAPTURE（user_grant，需 reason+usedScene）把重弹压缩到「进程被杀后的第一次」。"
+    },
+    {
+      "id": "screen-permission-hard-ceiling",
+      "type": "permission",
+      "keys": [
+        "永久授权",
+        "CUSTOM_SCREEN_RECORDING",
+        "2in1",
+        "EXEMPT_CAPTURE_SCREEN_AUTHORIZE",
+        "system_core",
+        "隐私弹窗",
+        "PermissionDefinitions"
+      ],
+      "path": "docs/架构-HarmOs-Win.md",
+      "symbol": "§7 变更记录 v1.11.0 ①（权限侧穷举定论）",
+      "summary": "SDK 权限全表：CUSTOM_SCREEN_RECORDING = system_basic + deviceTypes[2in1,tv]；EXEMPT_CAPTURE_SCREEN_AUTHORIZE / CAPTURE_SCREEN / CAPTURE_SCREEN_ALL / GET_SCREEN_CONTENT = system_core；仅 CUSTOM_SCREEN_CAPTURE = normal/user_grant 且支持平板。故平板三方应用无法永久免掉 AVScreenCapture 隐私确认，别再从权限侧找解。"
+    },
+    {
+      "id": "inject-channel-matrix",
+      "type": "input",
+      "keys": [
+        "输入注入",
+        "uitest",
+        "uinput",
+        "fast_touch",
+        "MMI SimulateInputEvent",
+        "VirtualHid",
+        "无障碍",
+        "参考项目做法",
+        "注入通道"
+      ],
+      "path": "docs/参考项目-能力清单.md",
+      "symbol": "§2 输入注入三档",
+      "summary": "四档：MMI SimulateInputEvent（系统权限/整机）/ uitest 持久 socket（<1ms，HOScrcpy fast_touch.py）/ uinput 子进程（~100ms）/ 辅助功能 VirtualHid（lanlink）。本项目实测：无障碍 ROM 无入口、uitest daemon 8012 无监听、uinput 受 hdc 通道限制 200ms(热)~2s(冷)。"
+    },
+    {
+      "id": "gate06-blocker-evidence",
+      "type": "gate",
+      "keys": [
+        "低频输入落地",
+        "阻塞",
+        "扩展服务",
+        "visible",
+        "Not match target",
+        "8012",
+        "注入延迟"
+      ],
+      "path": "tmp/gate06hdc.json",
+      "symbol": "verdict / all.p50 / all.p95",
+      "summary": "hdc 直连注入 p50 544ms / p95 682ms；无障碍基线见 tmp/gate06_baseline.json（8/8 errCode=-2）"
+    },
+    {
+      "id": "uitest-rpc-channel",
+      "type": "input",
+      "keys": [
+        "singleness",
+        "@uitest_socket",
+        "localabstract",
+        "fport",
+        "hypiumApiHelper",
+        "RPC",
+        "pressBack",
+        "touchDown",
+        "持久 socket",
+        "p95"
+      ],
+      "path": "pc/HarmOsWin.Core/UitestRpcClient.cs",
+      "symbol": "UitestRpcClient / TapAsync / PressNavAsync",
+      "summary": "设备 `uitest start-daemon singleness &` 加载 /data/local/tmp/agent.so，监听抽象 unix socket @uitest_socket；PC 用 `hdc fport tcp:<local> localabstract:uitest_socket` 映射。报文=head+uint32 sid(BE)+uint32 len(BE)+JSON+tail；JSON module=com.ohos.devicetest.hypiumApiHelper，method=Gestures，api=touchDown/touchUp/pressBack/pressHome。实测单点 p50 74.97ms、p95 90.42ms。"
+    },
+    {
+      "id": "uitest-agent-so-source",
+      "type": "reference",
+      "keys": [
+        "hosScrcpy",
+        "uitest_agent",
+        "DevEco",
+        "screen-mirroring",
+        "jar",
+        "1.2.3"
+      ],
+      "path": "docs/参考项目-能力清单.md",
+      "symbol": "§2 输入注入 —— 本项目实测段（agent.so 来源）",
+      "summary": "DevEco Studio 自带投屏插件里就带 uitest agent（1.1.3/1.1.5/1.1.12/1.2.3 四个版本 + x86），推 1.2.3 到设备 /data/local/tmp/agent.so 即可"
+    },
+    {
+      "id": "uitest-rpc-not-from-app",
+      "type": "decision",
+      "keys": [
+        "EACCES",
+        "SELinux",
+        "debug_hap",
+        "connectto",
+        "probeUitestSocket",
+        "peerUid",
+        "方案 B",
+        "抽象 socket",
+        "uitest 域"
+      ],
+      "path": "tablet/entry/src/main/cpp/harmoscap.cpp",
+      "symbol": "ProbeUitestSocket / DoRpc",
+      "summary": "方案 B（平板应用进程自己连 @uitest_socket、绕开 hdc）判死。应用进程内 connect 返回 errno=13(EACCES)：应用域 o:r:debug_hap:s0:...（正式包 normal_hap）与 agent 域 u:r:uitest:s0 跨域，SELinux 未放行 unix_stream_socket connectto。agent.so 本身不做 UID 白名单（只有一行 Peer UID 日志），也不能靠 dlopen 复用（注入仍需 uitest 域身份）。探针入口保留在会话页「🔌 探针 uitest socket（方案 B）」。"
+    },
+    {
+      "id": "nav-inject-ui",
+      "type": "pc",
+      "keys": [
+        "InjectNavAsync",
+        "EnsureRpcAsync",
+        "nav-test",
+        "回退 hdc",
+        "三键注入",
+        "TryMapToDevice",
+        "tap-test",
+        "双击窗口",
+        "letterbox",
+        "tap-delay"
+      ],
+      "path": "pc/HarmOsWin.App/MainWindow.cs",
+      "symbol": "SendNav / InjectNavAsync / EnsureRpcAsync / NavSelfTestAsync",
+      "summary": "PC 三键 + 画面点击都接上 uitest RPC。三键：EnsureRpcAsync 惰性建链（daemon 自启 + tconn + fport，并发只跑一次，失败可重试），RPC 失败或最近任务键回退 hdc shell；热态 Back 188ms / Home 303ms。点击：TryMapToDevice 按 Uniform/UniformToFill 的实际缩放反算 letterbox，越界丢弃；260ms 双击窗口仲裁（双击全屏不误注入）、拖动 >6px 丢弃、80ms 节流；设备握手后后台预热，热态 93ms。自测入口 --nav-test / --tap-test --tap-out --tap-delay。"
+    },
+    {
+      "id": "canvas-tap-mapping",
+      "type": "feature",
+      "keys": [
+        "点击转发",
+        "坐标映射",
+        "canvas_tap_mapping",
+        "落点越界",
+        "预热注入"
+      ],
+      "path": "docs/架构-HarmOs-Win.md",
+      "symbol": "§变更记录 v1.15.0 / MainWindow.TryMapToDevice",
+      "summary": "画面点击到设备像素的映射规则与单击仲裁（见 AGENTS.facts.canvas_tap_mapping）：缩放反算 + 越界丢弃 + 260ms 双击窗口 + 6px 拖动阈值 + 80ms 节流 + 握手后预热。"
+    },
+    {
+      "id": "agent-so-bootstrap",
+      "type": "feature",
+      "keys": [
+        "agent.so 部署",
+        "md5 校验",
+        "空壳 daemon",
+        "hdc file send",
+        "随包分发",
+        "部署顺序",
+        "EnsureAgentAsync",
+        "EnsureDaemonAsync",
+        "assets/agent.so"
+      ],
+      "path": "pc/HarmOsWin.Core/UitestRpcClient.cs",
+      "symbol": "EnsureAgentAsync / EnsureDaemonAsync / SendFileAsync / AgentSoPath",
+      "summary": "agent.so 随 PC 端分发（HarmOsWin.App/assets/agent.so，600KB，md5 9977d66a…），建链时自动部署：先 md5sum 比对设备 /data/local/tmp/agent.so，不一致才 hdc file send + chmod 755 + 回读校验。硬约束是顺序——必须先 so 后 daemon，否则 daemon 加载出「空壳」（socket 在、请求全失败）；so 变更时才 pkill 重启 daemon。真机：全新设备与空壳场景均自愈，热态不重复推送（Back 128ms）。注：平板 /data/local/tmp 是 shell:shell 0771，应用侧无法自行推送，所以只能走 PC。"
+    },
+    {
+      "id": "clipboard-uplink-pastebutton",
+      "type": "feature",
+      "keys": [
+        "PasteButton",
+        "剪贴板上行",
+        "SECURE_PASTE",
+        "getDataSync",
+        "READ_PASTEBOARD",
+        "点即授权",
+        "防回环",
+        "pushClipText"
+      ],
+      "path": "tablet/entry/src/main/ets/pages/SessionPage.ets",
+      "symbol": "readClipToPc / SessionService.pushClipText / PasteButton.onClick",
+      "summary": "剪贴板上行（设备→PC）走官方免权限安全控件 PasteButton：点击临时授予 SECURE_PASTE（仅 onClick 回调内有效），回调内同步 getDataSync() 读剪贴板，不弹窗不申请权限。纠正旧误判——READ_PASTEBOARD 是 user_grant+system_basic 但deviceTypes 含 tablet，卡点是签名级别而非设备形态。pushClipText 返回 bool，hash 相同即拦下（防回环）。真机端到端：38 字符文本设备→PC 完全一致。交互形态是用户主动点「粘贴」（平台强制）。"
+    },
+    {
+      "id": "native-input-handfeel",
+      "type": "feature",
+      "keys": [
+        "拖动转发",
+        "滚轮转发",
+        "touchMove",
+        "AxisDown",
+        "PointerAsync",
+        "DragSession",
+        "零延迟点击",
+        "uitest_pointer_api_full"
+      ],
+      "path": "pc/HarmOsWin.App/MainWindow.cs",
+      "symbol": "BeginTapCandidate / TrackTapDrag / FlushDragLoopAsync / EndTapCandidate / ForwardWheel",
+      "summary": "手感专项：单击零延迟（按下即 touchDown、抬起补 touchUp，去掉 260ms 双击窗口）；拖动实时流式转发（越 6px 阈值进入拖动，跨帧合帧只发最新坐标，抬起 touchUp）；新增滚轮 AxisDown/AxisUp。实测 touchMove p50 8.4~9.6ms、30 步拖动 365ms（82 步/秒）。双击全屏不再与单击争抢（按下即 down，双击分支补 up 收尾）。"
+    },
+    {
+      "id": "single-file-release",
+      "type": "feature",
+      "keys": [
+        "单文件发布",
+        "PublishSingleFile",
+        "EmbeddedResource",
+        "ResolveAgentSoPath",
+        "harmoswin.json",
+        "双击即连",
+        "NETSDK1176"
+      ],
+      "path": "pc/HarmOsWin.App/HarmOsWin.App.csproj",
+      "symbol": "EmbeddedResource agent.so / MainWindow.ResolveAgentSoPath / ReadConfiguredHost",
+      "summary": "PC 端单文件发布：发布为 920KB HarmOsWin.exe 放根目录，agent.so 以 EmbeddedResource 嵌入、运行时释放到 %LOCALAPPDATA%\\HarmOsWin\\（幂等）。harmoswin.json 提供 device 字段实现双击即连。注意 SelfContained=false（机器已装 .NET 8 桌面运行时）且不可开压缩（NETSDK1176）。"
+    },
+    {
+      "id": "duplicate-session-guard",
+      "type": "bugfix",
+      "keys": [
+        "重复连接",
+        "多会话",
+        "device-1 device-2",
+        "Dispatch 按 host",
+        "Add 去重",
+        "FindByHost",
+        "--dup-test",
+        "只有一张静止图"
+      ],
+      "path": "pc/HarmOsWin.Core/DeviceSession.cs",
+      "symbol": "SessionManager.Add / SessionManager.Dispatch / SessionManager.FindByHost / MainWindow.AddDevice",
+      "summary": "修复重复连接同一地址产生多会话的致命缺陷：Add 按 host:port 去重并返回已有实例；Dispatch 改为 host+port 精确匹配（原来只比 host，多会话时包只投给第一个，其余会话说显示最后一帧 → 用户看到「只有一张静止图」）；AddDevice 命中已有会话则切换并提示。设备端还会因多会话反复触发「PC 重新接入」重放 IDR（实测 392 次）。回归：--dup-test 连点三次会话数恒为 1。"
+    },
+    {
+      "id": "grpc-no-consent-route",
+      "type": "finding",
+      "keys": [
+        "免授权采集",
+        "libscreen_casting",
+        "scrcpy_grpc_socket",
+        "ScrcpyService onStart",
+        "NativeStartScreenCopy",
+        "uitest 扩展",
+        "HOScrcpy-python",
+        "DEC-09"
+      ],
+      "path": "docs/参考项目-能力清单.md",
+      "symbol": "hos_scrcpy/bridge/native_stream.py（HosVideoStream.start）",
+      "summary": "存在免录屏授权的采集路径：libscrcpy_server*.z.so 推到设备固定名 libscreen_casting.z.so，由 uitest 扩展守护进程加载（内部 NativeStartScreenCopy，非公开 AVScreenCapture），经 hdc fport → localabstract:scrcpy_grpc_socket → gRPC onStart 服务端流取裸 H.264。我方真机验证：首块 31B/307ms 头部 0000000167640034（有效 H.264），8 秒 38 块/160795B，无授权弹窗。同时纠正归档错误：hdc 可走无线，「与 Wi-Fi 冲突」不成立。切换与否待用户决策（DEC-09）。"
+    },
+    {
+      "id": "hoscrcpy-benchmark",
+      "type": "finding",
+      "keys": [
+        "frameRefreshInterval",
+        "frameRate 无效参数",
+        "89fps",
+        "14.88Mbps",
+        "h264_probe",
+        "NAL 解析",
+        "so 版本敏感",
+        "hdc 会话互踢",
+        "动态画面"
+      ],
+      "path": "tmp/h264_probe.py",
+      "symbol": "analyze / parse_sps / split_nals；设备端 [rpc_server.cpp:(parse_params)]",
+      "summary": "参考方案真机性能实测：**`-frameRate` 是无效参数，真参数为 `-frameRefreshInterval`**（设备端 parse_params 日志证实）。实测 1600×2560 @ 89.5fps / 14.88Mbps（30s 长测 2685 帧），首块 103~140ms，无 B 帧。89fps 为设备硬上限。scale=1 即原生分辨率。记录 6 条踩坑：so 版本敏感（6.5/6.9 不出流，6.8 可用）、hdc 会话互踢毁测量、必须有动态画面、需解析 NAL 才能得真实帧率、file send 需相对路径。"
+    },
+    {
+      "id": "scale-tier-calibration",
+      "type": "perf",
+      "keys": [
+        "devscale",
+        "scale",
+        "传输分辨率",
+        "画质",
+        "清晰度",
+        "档位",
+        "超采样",
+        "4:2:0 小字"
+      ],
+      "path": "pc/HarmOsWin.App/MainWindow.cs",
+      "symbol": "_devScale / --devscale / --bitrate / --framerate",
+      "summary": "设备端缩小倍数三档真机定标（2026-11-10）：-scale 默认 3→2（800×1280）。scale2 解码 5.9ms 最低、滑动 708 帧零丢帧；scale1 解码 18.1ms 排队丢 73 帧会卡。源内彩色小字笔画 1px→2px 可大幅减小 4:2:0 色度损失"
+    },
+    {
+      "id": "green-edge-16px-pad",
+      "type": "decode",
+      "keys": [
+        "绿边",
+        "绿边框",
+        "16px 对齐",
+        "宏块填充",
+        "补零",
+        "stride",
+        "bufH"
+      ],
+      "path": "pc/HarmOsWin.Core/MfH264Decoder.cs",
+      "symbol": "DecodeOneLocked 裁剪段 / Nv12ToBgra / CroppedFrames",
+      "summary": "画面右/底缘纯绿边根因 = H.264 16px 宏块对齐填充：-scale 3 内容 534×854 补零到 544×864，补零区 Y=U=V=0 经 BT.601 limited 解出 RGB(0,154,0)。修复=输出锁定按内容尺寸裁剪。陷阱：UV 平面偏移用 stride×bufH（缓冲高度）而非 stride×h"
+    },
+    {
+      "id": "red-purple-not-pipeline",
+      "type": "finding",
+      "keys": [
+        "红字偏紫",
+        "粉紫",
+        "偏色",
+        "色偏",
+        "不准改色彩公式",
+        "App 配色"
+      ],
+      "path": "docs/架构-HarmOs-Win.md",
+      "symbol": "v1.24.0 ③",
+      "summary": "已证伪为 App 自身配色（2026-11-10）：平板原生截图与投屏画面红字几乎一致（B−G +50 vs +48），同机股票 App 红字为真红（B−G −2）；JPEG 4:2:0 最多造成 B−G +10。**不得为此改色彩公式**（会破坏已验证正确的白底）"
+    },
+    {
+      "id": "hdcw-stderr-pitfall",
+      "type": "pitfall",
+      "keys": [
+        "hdcw stderr",
+        "静默失效",
+        "fport 残留",
+        "滑动无反应",
+        "流停滞假故障",
+        "corr 校验"
+      ],
+      "path": "scripts/hdcw.sh",
+      "symbol": "-",
+      "summary": "测试方法学坑（2026-11-10）：hdcw.sh 信息输出走 stderr，Python 只读 stdout 会静默失效；hdc fport 会累积残留转发（取最新那条，清理循环两遍）；跨组内容须先校验 corr>0.99；aa start 会踢掉 exe 的 fport（目标页面须在启动 exe 前打开）"
+    },
+    {
+      "id": "topbar-bottom-nav",
+      "type": "ui",
+      "keys": [
+        "上边框菜单",
+        "菜单按钮",
+        "三键导航胶囊",
+        "底部导航",
+        "帧率只显示",
+        "删除延迟",
+        "HUD 指标",
+        "--menu off",
+        "悬浮胶囊",
+        "浅色胶囊",
+        "标题栏配色",
+        "TitleChip",
+        "三键图标",
+        "自绘图标",
+        "NavKeyButton",
+        "三键不生效",
+        "按一次退两层",
+        "重复注入",
+        "无障碍服务未开启",
+        "注入回执",
+        "点按反馈"
+      ],
+      "path": "pc/HarmOsWin.App/MainWindow.cs",
+      "symbol": "BuildTopMenu / BuildBottomNav / SendNav / OnInjectResult / NavKeyButton / ApplyChrome / TitleChip",
+      "summary": "2026-11-10 22:23 用户要求：上边框加菜单按钮、底部显示三键导航、帧率移至上边框且只显示帧率，延迟/帧数/丢包/解码错误四项 HUD 指标从界面删除（诊断数值仍在 F11 底栏）。实现为两枚局部悬浮胶囊（ZIndex 20、不占 Grid 行、不改画面区尺寸与点击映射），避免重新出现横贯窗口的上下黑框。--menu off 只关上边框栏。23:48 视觉打磨：深色胶囊改浅色胶囊（TitleChip 浅底深字，标题栏配色走 Ui/Theme.cs 的 TitleBar/TitleChip/TitleText），菜单去掉 ☰（11.5 号下渲染成「三」），帧率去掉标签只留数值。23:52 底部三键图标改自绘（NavKeyButton：同一 13x13 画布、1.4 线宽，方框/圆环/左三角），SendNav 链路未动。2026-11-11 00:05 三键功能修复：SendNav 由「HWP + 注入双路同时打」改为「HWP 主路 → 等设备 InjectResult 回执（700ms）→ 失败才降级注入」，消除按一次执行两次；MainWindow 补订阅 InjectResultReceived，errCode=-2 翻译为「无障碍服务未开启」；失败原因写进胶囊内红字提示；NavKeyButton 加 Enabled 与 Flash 点按反馈。"
+    }
+  ]
+}

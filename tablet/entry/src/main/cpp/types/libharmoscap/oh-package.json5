@@ -1,0 +1,6 @@
+{
+  "name": "libharmoscap.so",
+  "types": "./index.d.ts",
+  "version": "1.0.0",
+  "description": "HarmLink native screen capture + H.264 encoder (GATE-02)"
+}

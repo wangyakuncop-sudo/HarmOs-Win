@@ -1,0 +1,78 @@
+{
+  "schema": "session_log/v1",
+  "date": "2026-11-10",
+  "session": "PC 端画质/流畅度调优：绿边修复 + 缩放档位定标 + 窗口倍数",
+  "duration_hint": "约 3 小时（19:13~20:06），此前还有同日早段（窗口 2/3、devscale 3/4 反复调整）",
+  "goal": "解决用户反馈的三件事：① 画面出现绿边框 ② 画质低（分辨率/清晰度不够）③ 窗口太大",
+  "done": [
+    "窗口默认贴合倍数改为 2/3（新增 --winscale，画面区 721×1153 → 480×769）",
+    "修复画面右/底缘纯绿边：定位为 H.264 16px 宏块对齐填充（-scale 3 内容 534×854 补零到 544×864，补零区 Y=U=V=0 经 BT.601 limited 解出 RGB(0,154,0)）",
+    "MfH264Decoder 输出锁定按内容尺寸裁剪；修正 Nv12ToBgra 的 UV 平面偏移必须用缓冲高度 bufH 而非裁剪高度 h（否则色度整幅错位且不报错）",
+    "新增 CroppedFrames 属性 + metrics 的 crop 字段，使裁边可观测",
+    "-scale 三档真机 A/B 定标，默认由 3 改为 2（800×1280）",
+    "新增 --bitrate（默认 20_000_000）与 --framerate（默认 0=不传）参数通路",
+    "证伪「红字偏粉紫是投屏管线缺陷」，确认为 App 自身配色，未做任何色彩改动",
+    "首帧耗时拆解定位（尚未优化）",
+    "回滚一次错误修复方向（丢队尾新帧导致花屏）",
+    "治理文件同步：架构文档 v1.24.0、AGENTS.json v1.24.0、INDEX.json 115 条、PROGRESS.json、工作日志、交接文档"
+  ],
+  "measured": {
+    "green_edge": {
+      "verdict": "已修复并真机验证",
+      "root_cause": "H.264 宏块 16px 对齐填充。-scale 3 内容 534×854 非 16 倍数 → 编码器补零到 544×864 → 补零区 Y=U=V=0 经 BT.601 limited 解出 RGB(0,154,0)；截图实测绿线 (0,152,0) 吻合。-scale 1/2/4 可被 16 整除故从未暴露",
+      "evidence": "metrics crop=31|544x864（解码器输出确为 544×864、31 帧全部被裁）；PC 自快照右缘 x=490~517 全为纯白 (255,255,255)，无绿线"
+    },
+    "scale_tiers": {
+      "verdict": "三档真机 A/B 完成，默认取 2",
+      "table": "档位3(533x853): 转换0.7~4.4ms 解码1.7~4.8ms 合计6.5ms 理论152fps | 档位2(800x1280): 转换0.6~1.2ms 解码4.6~5.4ms 合计5.9ms 理论168fps 滑动收帧708 排队丢0 | 档位1(1600x2560): 转换1.8~3.8ms 解码13.0~21.4ms 合计18.1ms 理论55fps 滑动收帧233 排队丢73",
+      "reason": "scale2 解码耗时最低且滑动零丢帧；源内彩色小字笔画 1px→2px 使 4:2:0 色度损失大幅减小（红字由亮度崩 47% 变几乎无损）；相比 scale1 仅少 14% 锐度却无卡顿风险"
+    },
+    "red_purple": {
+      "verdict": "证伪为 App 自身配色，未改代码",
+      "device_native": "(186,96,147)  B-G=+50",
+      "pc_mirror": "(206,94,143)  B-G=+48",
+      "stock_app_control": "(233,79,77)  B-G=-2（真红）",
+      "exclusion": "纯红细字走 JPEG 4:2:0 后 B-G 最多 +10，不可能产生 +48"
+    },
+    "first_frame": {
+      "verdict": "已定位，尚未优化",
+      "breakdown": "触控通道 ~1.0s + 采集初始化 ~3.3s（含固定等 1.5s）+ gRPC 握手 ~1.8s + 等首帧 ~10.2s",
+      "root_cause": "看门狗每 3s 轮询、空闲超 3s 才催 IDR → 启动后最多纯等 6s 才发第一次催帧"
+    }
+  },
+  "not_done": [
+    "首帧优化（已定位根因与方案，未动手）",
+    "自适应 scale（-scale 启动时定死，拖大窗口超源分辨率会糊）",
+    "用户对 devscale 2 的主观验收",
+    "剪贴板上行图片（PNG）未做",
+    "手机端 Pura X Max 未验证",
+    "多设备并发未复测",
+    "DEC-09（是否切 gRPC 免授权路径）未拍板"
+  ],
+  "decisions": [
+    "窗口贴合倍数默认 2/3（用户明确要求，先 2/3 再 4/5 后还原 2/3）",
+    "-scale 默认由 3 改为 2，依据三档真机实测（非主观判断）",
+    "不为「红字偏粉紫」改色彩公式 —— 已证伪为 App 配色，改动会破坏已验证正确的白底",
+    "回滚「过载丢队尾新帧」方案 —— 真机数据否定其前提，且会打断 H.264 参考链导致花屏"
+  ],
+  "risks": [
+    "【中】首帧 ~12s 仍偏长，用户已感知；优化方案已明确但未实施",
+    "【中】-scale 启动时定死，窗口放大超过源分辨率会糊（自适应未做）",
+    "【低】治理文件历史上曾落后于代码；本轮已同步至 v1.24.0",
+    "【本会话作废结论】曾把滑动卡归因于 -frameRefreshInterval 未生效 —— 真机读 /proc/<pid>/cmdline 证实参数确实传到，该参数只约束静止时重复帧间隔；据此改的「丢队尾新帧」造成花屏，已回滚"
+  ],
+  "files_touched": [
+    "pc/HarmOsWin.App/MainWindow.cs（_fitScale 默认 2/3、_devScale 默认 2、--winscale/--bitrate/--framerate、metrics 增 crop）",
+    "pc/HarmOsWin.Core/MfH264Decoder.cs（输出锁定按内容尺寸裁剪、Nv12ToBgra 签名扩展 bufH、CroppedFrames）",
+    "pc/HarmOsWin.Core/ReferenceCapture.cs（scale/bitRate 默认值注释与参数）",
+    "docs/架构-HarmOs-Win.md（v1.24.0 变更记录）",
+    "AGENTS.json（v1.24.0）",
+    "INDEX.json（115 条）",
+    "PROGRESS.json（阶段 17、NEXT-12/13）",
+    "docs/handoff-20261110-200405.md（交接文档）",
+    "releases/HarmOsWin_画质优化_devscale2_20261110.exe",
+    "tmp/（测试脚本：sharp_static.py / quality_ab2.py / red_sim.py / sps_vui.py / sync_agents.py）"
+  ],
+  "next_session": "① 首帧优化（gRPC 握手完成即主动催一次 IDR，预期省 4~6s；勿加 power-shell wakeup）② 用户主观验收 devscale 2 ③ 自适应 scale ④ DEC-09 拍板",
+  "notes": "本轮测试踩坑已记入架构文档 §7 v1.24.0 ⑥：hdcw.sh 输出走 stderr（只读 stdout 静默失效）、hdc fport 累积残留（取最新、清理两遍）、跨组内容须校验 corr>0.99、--snapshot 延时从采集启动后才计时、息屏会伪造 0 帧、aa start 会踢掉 exe 的 fport。编译 0 warning / 0 error，exe md5 977087c8461aaff328202e47a9bc2922。设备现场已复原。"
+}

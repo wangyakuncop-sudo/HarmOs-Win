@@ -1,0 +1,61 @@
+{
+  "schema": "session_record/v1",
+  "date": "2026-11-07",
+  "session": 3,
+  "duration_hint": "约 40 分钟",
+  "goal": "A3 验证：TIMEOUT_SCREENOFF_DISABLE_LOCK 权限能否让平板「熄屏不锁屏」并保持实时画面",
+  "done": [
+    "module.json5 增加 ohos.permission.TIMEOUT_SCREENOFF_DISABLE_LOCK，MCP 构建通过，无线装机成功",
+    "探针新增 power.isActive() 打点，TICK 日志带 active=ON/OFF，可精确定位熄屏时刻",
+    "用 power-shell timeout -o 8000 触发系统超时息屏（不按电源键），规避「按电源键=完整休眠」的变量混淆",
+    "熄屏后采集持续 200s 不断流（delta 5888-6144B/500ms），但抽帧全黑（2348B 静态 PNG）",
+    "查 SDK PermissionDefinitions.json 确认该权限 deviceTypes 仅 [2in1]；bm dump 显示 reqPermissionStates=-1（未授予）",
+    "唤醒后截图确认为锁屏界面 —— 平板仍进 keyguard，权限确实未生效",
+    "排查 @ohos.display 的 createVirtualScreen：公开 SDK 可见，但无镜像主屏选项，不能替代投屏采集"
+  ],
+  "measured": {
+    "build": "hvigor assembleHap 通过 10s",
+    "a3_permission_deviceTypes": "[\"2in1\"]",
+    "a3_grant_state": "reqPermissionStates = [0,0,0,-1]，该权限为 -1",
+    "a3_capture": "熄屏 200s 不断流，delta 稳定 5888-6144B/500ms，总 4.64MB",
+    "a3_frames": "t=20s 97KB 正常；t=45/70/100/140s 均 2348B 纯黑（完全静止）",
+    "wake_lock_state": "唤醒后为锁屏界面，权限未生效"
+  },
+  "not_done": [
+    {
+      "item": "INV-05 原样（息屏实时刷新真实画面）未达成",
+      "reason": "应用层 AVScreenCapture 在熄屏后只能拿到黑帧",
+      "next": "NEXT-01A 由用户从三条候选路线中选定"
+    },
+    {
+      "item": "锁屏（非熄屏）场景未单独测",
+      "reason": "本轮按电源键直接熄屏，未区分锁屏与断电两种状态",
+      "next": "选定路线后再补测"
+    }
+  ],
+  "decisions": [
+    "AVScreenCaptureRecorder 的 preset 只有 H264_AAC / H265_AAC 两种，强制带音轨，因此长时任务必须同时申请 audioRecording，否则熄屏后被系统以 IllegalAudioCapturerBySuspend 杀掉",
+    "GATE-01 明确判定：INV-05 不能按原字面实现，必须由用户重新取舍",
+    "构建通道：MCP build_project（工程路径 C:/Users/W/Desktop/HarmOS/HarmOs-Win/tablet），装机与运行走 hdcw.sh 无线"
+  ],
+  "risks": [
+    "若用户坚持真实息屏出画面，只剩系统级虚拟屏或系统级投屏两条路，华为消费机大概率拿不到权限",
+    "探针期间捕获到的数据速率仅 12KB/s 量级，说明黑帧场景下编码器几乎不产数据，真实投屏码率需另行实测"
+  ],
+  "files_touched": [
+    "tablet/build-profile.json5",
+    "tablet/entry/src/main/module.json5",
+    "tablet/entry/src/main/ets/common/KeepAlive.ets",
+    "tablet/entry/src/main/ets/probe/ScreenCaptureProbe.ets",
+    "tablet/entry/src/main/ets/pages/Index.ets",
+    "PROGRESS.json",
+    "SESSIONS/2026-11-07.json",
+    "tmp/gate01.mp4",
+    "tmp/frames/f010.png",
+    "tmp/extract_frames.ps1"
+  ],
+  "next_session": "NEXT-01A：用户选定息屏路线后再动工；若走 A 路线（亮度压最低保面板），需再写一个亮度 + 保活探针验证",
+  "notes": "系统隐私弹窗（允许 HarmLink 使用你的屏幕）每次启动都会弹，自动化脚本需在启动后约 5s 点 (1026,1474)；探针宽限期设 15s 以免误判停流",
+  "conclusion": "A3 排除。TIMEOUT_SCREENOFF_DISABLE_LOCK 只对 PC/2in1 生效，平板拿不到。至此 A1/A2/A3/B 四条应用层路径全部排除，INV-05「真息屏+实时刷新」在鸿蒙平板三方应用上不可达。",
+  "next": "NEXT-01B：用户拍板 —— 方案P（面板常亮+亮度最低+禁止自动息屏）／方案Q（息屏冻结画面）／方案C（Cast+ 反向工程）"
+}

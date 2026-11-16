@@ -1,0 +1,60 @@
+# ---- 构建产物 ----
+build/
+*/build/
+entry/build/
+.hvigor/
+.hvigor-cache/
+oh_modules/
+node_modules/
+*.hap
+*.har
+*.hsp
+
+# ---- IDE ----
+.idea/
+.vscode/
+*.iml
+.local/
+.deveco/
+
+# ---- 签名与凭据（绝不入库） ----
+*.p12
+*.cer
+*.p7b
+*.jks
+*.keystore
+*.csr
+signingConfigs.json
+
+# ---- 编译中间产物 ----
+obj/
+bin/
+[Dd]ebug/
+[Rr]elease/
+*.user
+*.suo
+*.cache
+
+# ---- 运行时临时文件 ----
+tmp/
+clip-anchor.json
+*.log
+*.jpeg
+*.jpg
+*.png.orig
+screenshot-*
+rec.mp4
+
+# ---- 本地调试会话状态 ----
+.hdcw/
+*.hdcw
+
+# ---- 系统垃圾 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 本地环境配置 ----
+*.local.json
+.env
+.env.*

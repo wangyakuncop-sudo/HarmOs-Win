@@ -1,0 +1,9 @@
+{
+  "src": [
+    "pages/Index",
+    "pages/NetworkProbePage",
+    "pages/SessionPage",
+    "pages/ClipPage",
+    "pages/InputProbePage"
+  ]
+}

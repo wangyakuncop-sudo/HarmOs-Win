@@ -1,0 +1,113 @@
+{
+  "module": {
+    "name": "entry",
+    "type": "entry",
+    "description": "$string:module_desc",
+    "mainElement": "EntryAbility",
+    "deviceTypes": [
+      "phone",
+      "tablet"
+    ],
+    "deliveryWithInstall": true,
+    "installationFree": false,
+    "pages": "$profile:main_pages",
+    "requestPermissions": [
+      {
+        "name": "ohos.permission.INTERNET"
+      },
+      {
+        "name": "ohos.permission.GET_NETWORK_INFO"
+      },
+      {
+        "name": "ohos.permission.KEEP_BACKGROUND_RUNNING"
+      },
+      {
+        "name": "ohos.permission.TIMEOUT_SCREENOFF_DISABLE_LOCK"
+      },
+      {
+        "name": "ohos.permission.CUSTOM_SCREEN_CAPTURE",
+        "reason": "$string:screen_capture_reason",
+        "usedScene": {
+          "when": "inuse",
+          "abilities": [
+            "EntryAbility"
+          ]
+        }
+      },
+      {
+        "name": "ohos.permission.FLOAT_VIEW",
+        "reason": "$string:float_view_reason",
+        "usedScene": {
+          "when": "inuse",
+          "abilities": [
+            "EntryAbility"
+          ]
+        }
+      }
+    ],
+    "extensionAbilities": [
+      {
+        "name": "LowFreqAccessibility",
+        "srcEntry": "./ets/accessibility/AccessibilityExtAbility.ets",
+        "label": "$string:accessibility_label",
+        "description": "$string:accessibility_desc",
+        "type": "accessibility",
+        "exported": true,
+        "metadata": [
+          {
+            "name": "ohos.accessibleability",
+            "resource": "$profile:accessibility_config"
+          }
+        ]
+      }
+    ],
+    "abilities": [
+      {
+        "name": "ClipSetAbility",
+        "srcEntry": "./ets/clipset/ClipSetAbility.ets",
+        "description": "$string:module_desc",
+        "icon": "$media:icon",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "exported": true
+      },
+      {
+        "name": "EntryAbility",
+        "srcEntry": "./ets/entryability/EntryAbility.ets",
+        "description": "$string:EntryAbility_desc",
+        "icon": "$media:icon",
+        "label": "$string:EntryAbility_label",
+        "startWindowIcon": "$media:startIcon",
+        "startWindowBackground": "$color:start_window_background",
+        "backgroundModes": [
+          "multiDeviceConnection",
+          "audioRecording"
+        ],
+        "exported": true,
+        // 2026-11-11 22:15 用户要求：PC 每次「取剪贴板」都要把本应用从前台切回来，
+        // 系统必然播一次整屏左右滑的应用切换动画，晃眼且应用侧关不掉
+        // （setWindowTransitionAnimation 只有 DESTROY；aa start 的 -W/--wl/--wt/--ww/--wh 实测无效）。
+        // 治本只能是让窗口本身变小：声明 floating 后用户可以把它拖成角落小浮窗，
+        // 之后 aa start 只是把小窗提到前台，滑动范围就是小窗那么大。
+        // 注意：Stage 模型没有 setWindowMode 之类的 API，只能靠这里声明 + 用户手动拖一次，
+        // 声明之前系统连拖都不让拖（只有 fullscreen/split 可用）。
+        "supportWindowMode": [
+          "fullscreen",
+          "split",
+          "floating"
+        ],
+        "skills": [
+          {
+            "entities": [
+              "entity.system.home"
+            ],
+            "actions": [
+              "ohos.want.action.home"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

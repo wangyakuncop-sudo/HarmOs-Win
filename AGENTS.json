@@ -1,0 +1,887 @@
+{
+  "doc": {
+    "id": "AGENTS_HARMOS_WIN",
+    "version": "1.24.0",
+    "format": "json",
+    "purpose": "machine-readable engineering contract for AI agents modifying HarmOs-Win (HarmonyOS screen mirroring to Windows)",
+    "last_verified": "2026-11-10T20:06:00+08:00",
+    "architecture_doc": "docs/架构-HarmOs-Win.md（架构单一事实源，改分层/协议/模块必须同步）",
+    "language": "zh-CN",
+    "priority": "source code > this file; if conflict, fix this file immediately",
+    "progress_file": "PROGRESS.json (session resume state; read after this file)",
+    "last_updated": "2026-11-10"
+  },
+  "protocol": {
+    "index_file": "INDEX.json",
+    "sessions_dir": "SESSIONS/",
+    "read_order": [
+      "INDEX.json",
+      "PROGRESS.json",
+      "definition_of_done",
+      "facts",
+      "invariants",
+      "decisions",
+      "verification"
+    ],
+    "before_edit": [
+      "search INDEX.json keys first to locate path/symbol",
+      "read the target file, never trust line numbers",
+      "check invariants below before changing behaviour",
+      "identify every file in the impact list"
+    ],
+    "after_edit": [
+      "build must be BUILD SUCCESSFUL with 0 ArkTS warnings",
+      "if UI/input/clipboard changed, verify on device",
+      "update INDEX.json for any new/moved/renamed file, symbol, keyword",
+      "append one line to changelog",
+      "同步 PROGRESS.json"
+    ]
+  },
+  "project": {
+    "name": "HarmOs-Win",
+    "path": "C:/Users/W/Desktop/HarmOS/HarmOs-Win",
+    "goal": "鸿蒙 7 手机/平板实时投屏到 Windows，支持反向输入注入、双向剪贴板、三键导航、多设备（≤3）",
+    "modules": {
+      "tablet": "平板端 HarmonyOS 工程（ArkTS + C++ NAPI）",
+      "pc": "Windows 客户端（C# / .NET 8 + WPF）",
+      "docs": "方案、验证记录、参考项目归档",
+      "scripts": "构建/调试工具脚本"
+    }
+  },
+  "facts": {
+    "api_version": 26,
+    "os": "OpenHarmony 7.0.0.111",
+    "devices": {
+      "tablet": {
+        "model": "MLR-AL00",
+        "type": "HUAWEI MatePad",
+        "resolution": "1600x2560 (portrait)",
+        "wireless": "192.168.1.100:38803",
+        "usb_serial": "6MFBB25C03202906"
+      },
+      "phone": {
+        "model": "Pura X Max 典藏版",
+        "type": "foldable, default unfolded",
+        "wireless": "192.168.1.103:36445"
+      }
+    },
+    "host": {
+      "os": "Windows",
+      "wlan_ip": "192.168.1.102",
+      "hdc": "E:/DevEco Studio/sdk/default/openharmony/toolchains/hdc.exe",
+      "hdc_version": "3.2.0f",
+      "deveco": "E:/DevEco Studio"
+    },
+    "measured": {
+      "wifi_rtt_idle": "39-137ms, avg 82ms (power-save wakeup; active 4-5ms)",
+      "wifi_throughput": "~25 Mbps (283KB in 90ms)",
+      "snapshot_display_frame": "700-800ms per frame (≈1.3fps) — UNUSABLE for video",
+      "screen_off_override": "power-shell timeout -o <ms> 系统级覆盖息屏时间；hdc 断连/常亮 3min 保持，SLEEP 后被压到 10000ms，解锁后清除；退出必须 -r",
+      "official_pcmanager": "华为多屏协同 PC 端 = Wi-Fi Direct P2P(5G) + FillP(UDP 可靠) + MFPlat/D3D11 硬解 + 虚拟设备驱动；锁屏时改画本地锁屏页，不做屏幕保活",
+      "brightness_channel": "uitest uiInput keyEvent 41/40 可改系统亮度，与应用前台无关；连按 6 次 49→1(Min)，15s 不回弹，按 40 同次数恢复 48；亮度=1 时截图内容完全正常（物理背光不影响合成像素）；2724/2660 实测无效",
+      "l0_udp_latency": "家庭 LAN(192.168.1.102↔192.168.1.100) HWP v1 UDP 双通道 + 30ms 心跳实测：IDLE(无心跳) RTT p50=94ms/p95=140ms/max=140ms；LIGHT(2.3Mbps) p50=15ms/p95=16ms；FULL(16Mbps) p50=15ms/p95=31ms，28476 视频包零丢失零乱序；probe 44/44 零丢失，控制命令全部 ACK。结论：心跳消除了 Wi-Fi 省电唤醒尖峰",
+      "gate02_e2e": "2026-11-08 真机 HWP v1.1 端到端：先 CONTROL 握手 ACK 成功（首包 98.6ms，自适应 RTO 从 20ms 放宽到 200ms 再收敛到 68ms）；10/10 输入事件 ACK p50=10.88ms/max=18.8ms；三键导航 3/3 ACK；剪贴板文本与 PNG 分片均 ACK；CH_STREAM 真实 H.264 码流 235 帧 / 1105440B / 940 包，丢帧 0、视频丢包 0，设备端 UI 统计与 PC 端报告完全一致。报告 tmp/gate02_result.json",
+      "hdc_reconnect_cost": "hdc TCP 会话跨进程即掉线，每条命令都要重新 tconn：已连接态单次 hdc 命令约 170ms，但不可跨进程复用；hdcw.sh 单条 shell 实测 2.0~2.6s（修复前因只认 Connect OK 而白跑 kill/start/sleep 1，达 3.6~5.3s）。常驻 hdc shell 实测返回 'Not support stdio TTY mode' / 'Not match target founded'，不可行。结论：DEC-02 的 hdc 输入注入通道达不到 <30ms",
+      "pasteboard_permission": "ohos.permission.READ_PASTEBOARD 为 system_basic + user_grant，普通调试签名装机直接失败（code 9568289 grant request permissions failed），ArkTS 静态告警也无法通过声明消除。设备→PC 系统剪贴板自动读取不可用，已改为应用内主动推送；PC→设备 setData 不受限",
+      "uinput_channel": "uinput -T -c X Y -d 1 -u 1 在本机 ROM 上返回 'parameter error, unable to run'（4/4 失败）；uitest uiInput 4/4 成功但每条需 2.0~2.6s hdc 重连",
+      "input_event_client_api": "SDK API 26 公开模块 @ohos.multimodalInput.inputEventClient（经 @kit.InputKit 导出，@since 26.0.0，非 @systemapi）：createTouchController / createKeyboardController / createMouseController 支持任意坐标 touchDown/Move/Up、mouse moveTo、pressKey；syscap SystemCapability.MultimodalInput.Input.InputSimulator 在 tablet.json / default.json 均已声明",
+      "control_device_permission": "上述 API 需 ohos.permission.CONTROL_DEVICE：system_basic / manual_settings / provisionEnable=true / deviceTypes 仅 2in1 / since 26.0.0；声明必须带 reason + usedScene，否则 PreBuild 报 00303218。平板装机成功但 bm dump 显示 reqPermissionStates=-1（未授予）；本机 ROM 的 bm 无 grant 子命令",
+      "gate05_injection": "GATE-05 两轮真机各 10 次：canIUse(syscap)=true，createTouchController() 20/20 返回 BusinessError 801 Capability not supported（stage=1，本地 0~1ms）；声明 CONTROL_DEVICE 前后一致。HWP CONTROL 端到端 p50=29.18ms / p95=84.34ms（含回传），证明传输层达标、瓶颈在设备端注入落地",
+      "acl_profile": "HarmonyOS 调试签名 profile C:/Users/W/.ohos/config/*.p7b 为 issuer=app_gallery、apl=normal、app-feature=hos_normal_app、acls.allowed-acls=[]；改 OpenHarmony SDK 的 UnsgnedReleasedProfileTemplate.json 不会作用于该 profile，ACL 提权路线不适用",
+      "accessibility_fallback": "剩余候选 AccessibilityExtensionContext.injectGestureSync（since 10，无权限标注，syscap BarrierFree.Accessibility.Core）：需新建 AccessibilityExtensionAbility 并在系统设置手动开启；GesturePath 只能注入一条带 points + durationTime 的完整手势路径，非任意坐标高频事件流，且构造函数自 API 12 起 deprecated。本轮未真机验证",
+      "dec08_resolution": "2026-11-08 02:58 用户明确拍板：需求 2 收窄为「三键导航 + 低频点击」，放弃任意坐标高频鼠标/键盘注入。GATE-03(hdc)、GATE-05(原生 inputEventClient 801)、ACL 提权(权限 -1 / profile ACL 空)三条路径真机判死后，DEC-08 结案，非静默降级",
+      "accessibility_service_registration": "NEXT-07 落地：module.json5 声明 extensionAbilities(type=accessibility, name=LowFreqAccessibility, metadata ohos.accessibleability→accessibility_config.json[retrieve,gesture])；装机成功，bm dump 确认 extensionTypeName=accessibility、独立进程 com.harmos.mirror:accessibility",
+      "accessibility_cli_unavailable": "本机 ROM /system/bin 无 accessibility 命令，官方文档的 'accessibility enable -a ... -b ... -c rg' 不可用；只能由用户在 设置→辅助功能→扩展服务→已安装的服务 手动开启（安全提醒需本人勾选）",
+      "gate06_baseline": "GATE-06 基线 03:13：握手 PASS、8/8 CONTROL ACK、8/8 CMD_INJECT_RESULT 回传，stage 分布 4×5 点击 + 1/2/3 三键正确；全部 errCode=-2（本地桥 250ms 无响应）、serviceConnected=false、端到端 p50=291.63ms / p95=430.25ms。证明探针链路通，唯一缺口是无障碍服务未开启",
+      "gate06_arkts_warn": "HAP 7 条 ArkTS WARN：1 既有 ScreenCaptureProbe syscap + 3 InputInjector CONTROL_DEVICE 权限告警 + 3 无障碍 API deprecated(getWindowRootElement / performAction / injectGestureSync)。均属探针与 deprecated API 固有，ArkTS 严格模式禁用 @ts-ignore，如实记录",
+      "gate02_live": {
+        "date": "2026-11-08",
+        "transport": "161 帧 / 18303513B / 15645 包，droppedFrames=0，videoLost=0，RTO=200ms",
+        "decode": "MediaFoundationDecoder 解码 161 帧，errors=0，输出 1600x2560 BGRA",
+        "fps": 6.4,
+        "first_frame_ms": 14962.1,
+        "resolution": "1600x2560（SPS 解析得出，与设备一致）",
+        "note": "每次开始采集都会弹系统录屏授权（屏幕隐私保护勾选），必须点『允许』否则 choice=false 且零帧"
+      },
+      "mf_interop_pitfalls": {
+        "date": "2026-11-08",
+        "issue1": "MFCreateSample / MFT 返回的 IMFSample 在 .NET 里 QI 会误报 E_NOINTERFACE，Marshal.GetObjectForIUnknown 强转必失败",
+        "fix1": "全程用 Marshal.QueryInterface 只做存在性判断，实际调用走 vtable 槽位（IMFMediaBuffer Lock=3/Unlock=4/SetCurrentLength=6；IMFSample SetSampleTime=36/SetSampleDuration=38/ConvertToContiguousBuffer=41/AddBuffer=42）",
+        "issue2": "ProcessOutput 的数组参数默认按 SAFEARRAY 封送，直接报 Typelib export 0x80131165",
+        "fix2": "必须 [In, Out, MarshalAs(UnmanagedType.LPArray)] MFT_OUTPUT_DATA_BUFFER[]",
+        "issue3": "CMSH264DecoderMFT 的 providesSamples=false，且首次 ProcessOutput 会返回 0xC00D6D61（媒体类型变化，需重新协商）",
+        "fix3": "自己 MFCreateSample 输出样本；0xC00D6D61 当成 STREAM_CHANGE 处理，重新 SelectOutputType 后继续"
+      }
+    },
+    "native_direct_send": {
+      "statement": "实时码流的分片与 UDP 发送必须下移 C++（编码器回调线程直接 sendto），不能留在 ArkTS",
+      "reason": "ArkTS 单线程对每帧约 60~95 个 1200B 分片做多次拷贝 + Promise + socket IPC，实测被拖到 6~7fps",
+      "mechanism": "setStreamPeer(host,port) + setDirectSend(true)，独立 socket（不 bind，系统分配源端口）+ SO_SNDBUF 4MB + O_NONBLOCK",
+      "why_safe": "PC 端 HwpEndpoint 不跟随 remote 端口回包，控制包固定发往 Add() 配置的 device endpoint",
+      "date": "2026-11-08"
+    },
+    "screencapture_emits_on_change": {
+      "statement": "OH_AVScreenCapture 只在画面变化时出帧，静止画面降到 1~5fps，不是故障",
+      "impact": "任何帧率统计必须剔除静止段，否则会把 60fps 能力误判成 6fps（本项目在 2026-11-08 前一直误判）",
+      "measure": "Gate02Live 输出 peakFps（最大 1 秒窗口）与 activeFps（首帧到末帧），avgFps 仅作参考",
+      "date": "2026-11-08"
+    },
+    "screen_consent_is_manual": {
+      "statement": "每次启动采集必弹「允许 HarmLink 使用你的屏幕」，需人工点允许，约 9.9s 全耗在这里",
+      "impact": "首帧延迟指标必须拆成「授权等待」与「链路耗时」，链路本身 0.87s",
+      "date": "2026-11-08"
+    },
+    "pc_recv_decode_decouple": {
+      "statement": "PC 端收包线程绝不能同步解码：必须分离为「收包+重组」与「解码上屏」两条线程，且 socket 收缓冲调到 8MB",
+      "reason": "同步 Feed 时一帧解码+转换约 4ms，期间到达的包挤在默认 64KB 收缓冲里溢出，实测 0.59% 视频丢包 + p99 帧间隔 56ms",
+      "fix": "HwpEndpoint 设 ReceiveBufferSize=8MB / SendBufferSize=4MB；DeviceSession 用单槽「只保留最新帧」的解码线程（AboveNormal），跟不上就丢旧帧",
+      "result": "丢包降到 0~0.048%，p99 帧间隔 31ms",
+      "date": "2026-11-08"
+    },
+    "resolution_beacon": {
+      "statement": "设备必须在推流期间每 2s 重发一次 CMD_RESOLUTION，不能只依赖会话启动时那一次",
+      "reason": "PC 中途接入（重开窗口/断线重连）收不到启动时的上报；而 SPS 兜底不可靠——编码器未必在每个 IDR 前重复 SPS/PPS，导致解码器每帧抛「尚未获得分辨率」",
+      "symptom": "PC 侧 decoded=0 且 errors 等于帧数",
+      "date": "2026-11-08"
+    },
+    "capture_pause_resume": {
+      "statement": "停止推流时只暂停发送（setStreamActive(false)），不要停止采集",
+      "reason": "每次重新申请录屏权限都会弹「允许 HarmLink 使用你的屏幕」，人工点一次约 9.9s，是首帧延迟的唯一大头",
+      "detail": "暂停时采集与编码照常运行（静止画面 0~1fps），恢复时主动请求 IDR；统计基线要对齐，否则恢复瞬间会把历史帧一次性计入",
+      "date": "2026-11-08"
+    },
+    "bitrate_cbr": {
+      "statement": "码率必须用 CBR，VBR 会突破配置值（实测配置 16Mbps 实际跑到 23.3Mbps）",
+      "detail": "60fps + CBR 20Mbps 实测 17.4Mbps，丢包从 0.46% 降到 0；采集侧另用 OH_AVScreenCapture_SetMaxVideoFrameRate 封顶帧率",
+      "date": "2026-11-08"
+    },
+    "e2e_latency_clock": {
+      "statement": "计算端到端延迟必须两端同用 epoch 毫秒低 32 位，并用「最小单向延迟」标定时钟偏移",
+      "reason": "设备与 PC 系统时钟实测相差数分钟；历史上 PC 用 TickCount64 单调时钟，算出 4.29e9 ms 的假延迟",
+      "method": "Hwp.Now() 改 epoch；ObserveDeviceClock 取历史最小 (PC收包时刻-设备发送时刻) 作 offset；uint32 回绕用 UnwrapMs 还原",
+      "result": "实测端到端 8.5ms",
+      "date": "2026-11-08"
+    },
+    "keepalive_in_session": {
+      "statement": "长时任务必须由正式会话（SessionService）启动，不能只放在 GATE-01 探针页",
+      "reason": "此前 KeepAlive 只在 pages/Index.ets 调用，投屏链路一次都没启过；息屏或切后台时系统会挂起进程，采集与 UDP 一起断",
+      "fix": "SessionService.start(videoPath, ctx) 收 UIAbilityContext，transport.start() 之后调 KeepAlive.start；stop() 里按 keepAliveStarted 只停自己启的那次",
+      "evidence": "真机日志「长时任务已启动（multiDeviceConnection + audioRecording）」，统计行显示 保活=on",
+      "date": "2026-11-08"
+    },
+    "idr_cache_replay": {
+      "statement": "恢复推流必须重放缓存的 IDR，不能只靠「请求 IDR」",
+      "reason": "OH_AVScreenCapture 只在画面变化时出帧；静止画面下请求 IDR 没有新帧可编，实测恢复要等 1~10s 直到下一次真实绘制",
+      "fix": "编码回调里缓存最近一个同步帧（含原始时间戳）；setStreamActive(true) 先立即重放一次，再由独立线程在 120/300/480ms 各补一次",
+      "detail": "重放沿用原始时间戳，否则 PC 会算成「超低延迟新帧」污染统计；缓存随 ReleaseAll 清空，避免重放上一轮画面",
+      "result": "恢复首帧 924ms → 797ms（稳态不受影响）",
+      "date": "2026-11-08"
+    },
+    "visual_screenoff_limited": {
+      "statement": "视觉息屏在应用层只能做到「本窗口前台时压暗物理背光」，做不到真正的系统亮度调节",
+      "reason": "SDK 只有 window.setWindowBrightness：文档明示「窗口在前台且有焦点时生效，移到后台即失效，且不适用于投屏/镜像虚拟屏」；没有应用层改系统亮度的 API",
+      "implemented": "SessionPage 加「调暗屏幕」开关（亮度 0.05），退出页面或切后台自动恢复",
+      "impact": "采集的是渲染内容，不受物理背光影响（GATE-S1 已验证亮度归零时出帧非黑）；用户切到别的 App 调暗即失效",
+      "date": "2026-11-08"
+    },
+    "idr_cache_needs_paramsets": {
+      "statement": "缓存 IDR 供重放时，必须把 SPS/PPS 一起缓存并前置，单独的 IDR 解不出画面",
+      "reason": "OH_VideoEncoder 把参数集单独成帧输出（AVCODEC_BUFFER_FLAGS_CODEC_DATA，值 1<<3），IDR 帧本身不含 SPS/PPS；只缓存 IDR 的话，PC 全新进程既无法用 SPS 自举分辨率，也建不出解码器",
+      "symptom": "PC 侧每帧抛 InvalidOperationException「解码器尚未获得分辨率（等 CMD_RESOLUTION）」，直到 2s beacon 到达才恢复",
+      "fix": "编码回调分别缓存 g_lastParamSets 与 IDR，组装 g_lastIdr 时 paramSets 前置；两段必须在同一把 g_idrLock 内处理（非递归锁，分开 lock_guard 会自锁）",
+      "date": "2026-11-08"
+    },
+    "wpf_udp_needs_exe_not_dotnet": {
+      "statement": "在本机跑 PC 端验收，必须直接执行 HarmOsWin.Probe.exe / HarmOsWin.exe，不能用 dotnet.exe 跑同名 dll",
+      "reason": "WLAN 的网络配置文件是 Public（防火墙启用、入站默认拦截），放行规则按进程名 harmoswin*.exe 匹配；用 dotnet.exe 承载 dll 时进程名对不上，UDP 9010 的包被静默丢弃，表现为 handshake=false / packets=0，极易误判成设备没推流",
+      "check": "Get-NetConnectionProfile 看 NetworkCategory；Get-NetFirewallRule 看放行的是哪个进程名",
+      "date": "2026-11-08"
+    },
+    "consent_dialog_click_timing": {
+      "statement": "点「允许 HarmLink 使用你的屏幕」必须等弹窗渲染稳定后再点，用 dumpLayout 取 bounds 中心为准",
+      "reason": "弹窗刚弹出时点击会被吞掉（实测连续两次点空，采集始终不起来，PC 侧全 0 并误判为链路故障）",
+      "how": "uitest dumpLayout -p /data/local/tmp/layout.json → 取 text=\"允许\" 的 Button bounds 中心；当前机型实测 [819,1480][1237,1575] → (1028,1527)",
+      "date": "2026-11-08"
+    },
+    "pause_send_keeps_consent": {
+      "value": "「停止投屏」只调 pauseSend/setStreamActive(false)，采集会话、长时任务、transport 全部保留；再点「继续投屏」走 startStream 的恢复分支，不重新申请录屏授权",
+      "impact": "用户点停止后不再弹「允许 HarmLink 使用你的屏幕」；只有页面销毁（aboutToDisappear→stop()）或应用退出才真正释放采集",
+      "date": "2026-11-08"
+    },
+    "napi_int64_is_bigint": {
+      "value": "C++ napi_create_int64 在 ArkTS 中产生 BigInt，与 .d.ts 的 number 声明冲突，赋值抛异常被 stats() 的 catch 吞掉 → getStats() 永远返回默认全 0 / state=-1",
+      "impact": "曾多次把 native 帧 0 误判成「采集没起来」。所有 NAPI 数值一律用 napi_create_double",
+      "date": "2026-11-08"
+    },
+    "ui_text_needs_state": {
+      "value": "build 里直接调用方法（Text(this.session.getCaptureStats())）不依赖任何 @State，ArkUI 首帧求值后不再重建该节点，显示会永远停在初始值",
+      "impact": "native 统计必须落到 @State（capText）并由定时器刷新，否则看到的全是启动瞬间的 0",
+      "date": "2026-11-08"
+    },
+    "replay_paramsets_separate_frame": {
+      "value": "MF 的 H264 MFT 对「SPS+PPS+IDR 挤在同一个 sample」不会立即出帧，首帧要等到下一个 GOP（实测 4.7~13s）；重放时把参数集拆成独立一帧先发可降到 2.4s 左右",
+      "impact": "主重放与追加重放必须共用 SendCachedIdrSplit，只改主重放等于白改（曾出现首帧 11s）",
+      "date": "2026-11-08"
+    },
+    "pc_reconnect_firstframe_unstable": {
+      "value": "PC 换新进程接入时首帧仍不稳定：2.4 / 4.7 / 6.6 / 11.1s 都出现过；distinctFrames 明显大于 frames，说明重放帧的分片在突发发送时组不起来",
+      "impact": "属未闭环项，不要当成已修复；根因在控制通道（CMD_STREAM/RESOLUTION 走可靠通道）与直发视频通道的时序竞争",
+      "date": "2026-11-08"
+    },
+    "ui_metrics_structured": {
+      "statement": "设备端 UI 指标必须读结构化数据，不要解析日志或拼接字符串",
+      "reason": "getCaptureStats() 返回的是给人看的拼接串，UI 拿它做指标卡只能切片/正则，字段顺序一变就静默错位，且无法算帧率增量",
+      "fix": "SessionService.captureMetrics(): CaptureMetrics 直接返回 CapStats 的结构化字段（frames/bytes/keyframes/state/packets/sendErrors/directSend/idrReplays/idrCachedKb）；getCaptureStats() 仅保留给日志文本",
+      "date": "2026-11-08"
+    },
+    "capture_starts_on_pc_handshake": {
+      "statement": "设备端「会话已启动」不等于「正在采集」：native 采集要等 PC 下发 CMD_STREAM",
+      "reason": "SessionService.start() 只起 transport、长时任务、输入桥并上报 ROLE/RESOLUTION；startStream() 由 PC 的控制包触发。没有 PC 时 native state=-1、帧数 0，UI 只看 running 就会错误显示「投屏中」",
+      "fix": "状态按 capState 分层：running && capState>=0 才是「投屏中」（红点），否则「等待 PC」（琥珀点）；未握手时指标区显示「采集尚未启动」而不是一串 0",
+      "date": "2026-11-08"
+    },
+    "wpf_rtb_ignores_window_background": {
+      "statement": "WPF 窗口自快照（RenderTargetBitmap.Render(Content)）不绘制 Window.Background，内容根没设底色时导出的 PNG 是白底",
+      "reason": "首版 PC UI 只给 Window.Background 上了深色，快照里右侧内容区是全白，误以为深色主题没生效",
+      "fix": "内容根 Grid 显式设置 Background；窗口级背景不能替代",
+      "date": "2026-11-08"
+    },
+    "window_size_from_workarea": {
+      "statement": "窗口尺寸必须由 SystemParameters.WorkArea 收敛，不能写死 1280×840",
+      "reason": "本机可用工作区约 1304×861 DIP，写死 840 高会被系统裁掉底部，指标行与状态行直接看不见",
+      "fix": "Width/Height = min(目标值, 工作区 - 40)，MinHeight 降到 560 以适应小屏",
+      "date": "2026-11-08"
+    },
+    "pc_ui_border_drawn_controls": {
+      "statement": "PC 端 UI 是纯代码构建（工程无 XAML）；原生 Button/TabControl 的 chrome 改不了圆角与配色，需要用 Border 自绘",
+      "reason": "WPF 默认按钮模板带系统边框与高光，光设 Background 会露出默认灰边；TabControl 默认灰底与深色主题冲突",
+      "fix": "Ui/Controls.cs 提供 FlatButton / StatTile / StatusPill（Border 子类，含 hover/pressed/active/disabled 四态），Ui/Theme.cs 集中配色",
+      "date": "2026-11-08"
+    },
+    "picture_proportion_not_window_max": {
+      "statement": "用户要的是「画面在窗口里的占比最大化」，不是「窗口最大化」；禁止默认把窗口铺满屏幕",
+      "reason": "2026-11-08 用户明确纠正：先说了「投屏的平板窗口应该占比最大化」，我默认加了 WindowState=Maximized，用户回「占比最大化，不是窗口最大化」",
+      "fix": "窗口保持普通尺寸；改为 ① 推流开始后自动收起左侧栏 ② 按设备宽高比贴合窗口 ③ 指标磁贴改成浮在画面上的 HUD 不占布局高度 ④ 沉浸模式只隐藏窗口内边栏、不改 WindowState",
+      "date": "2026-11-08"
+    },
+    "fit_window_by_actual_layout": {
+      "statement": "贴合窗口必须用 ActualWidth/ActualHeight 反推 chrome 尺寸；写死「标题 40 + 底栏 30」的估算会残留可见黑边或把底栏顶出窗口",
+      "reason": "第一次实现用 chromeV=92 常量，实测右侧留下约 3% 黑边；且底部细节行/状态行换行后高度变大，正好把最后一行裁掉",
+      "fix": "FitWindowToDevice 先 UpdateLayout 读 ActualWidth - _stage.ActualWidth 得 chrome，二次收敛；底部两行都设 TextWrapping.NoWrap + 省略号",
+      "date": "2026-11-08"
+    },
+    "minwidth_blocks_portrait_fit": {
+      "statement": "窗口 MinWidth 会直接否决「按设备比例贴合」的结果：竖屏 1600×2560 贴合后窗口约 799 DIP 宽，MinWidth=900 会把它顶回 900，画面重新出现左右黑边",
+      "reason": "2026-11-08 实测：[fit] 日志算出 window=799x1352，但窗口实际 900x1352，画面区 862 宽而画面只有 761 宽 → 每侧 50 DIP 黑边",
+      "fix": "MinWidth 降到 380、MinHeight 420；贴合后的几何必须用日志核对 window/stage 比例，不要只看状态文字",
+      "date": "2026-11-08"
+    },
+    "control_rto_init_fallback": {
+      "statement": "控制通道无 RTT 样本时的 RTO 兜底不能用 20ms：平板在 IDLE 态不发心跳，PC 侧拿不到样本，20ms×4 次重传总共只有 80ms，短于本机 Wi-Fi 平均 RTT 82ms，首个 CMD_STREAM 必然判失败",
+      "reason": "2026-11-08 实测：21:10 启动的实例日志为 RTO=20ms，CMD_STREAM 下发失败 → 平板 SessionService.streaming 一直 false → pushFrame 首行 return → 一个视频包都不发 → PC 永远停在「等待设备画面…」；改成兜底 200ms 后同一命令握手成功（RTO=180ms），presented=65、延迟 37.8ms、解码错误 0",
+      "fix": "HwpPacket 拆成 ControlRtoMs=20（有样本时的下限）与 ControlRtoInitMs=200（无样本兜底）；判定「没有画面」时先看 PC 端握手日志的 RTO 值与平板 pushFrame 的 streaming 前置条件，不要只看平板编码帧数",
+      "date": "2026-11-08"
+    },
+    "window_scale_locked_to_device_aspect": {
+      "statement": "窗口缩放必须完全跟随设备屏幕比例：拦截 WM_SIZING 实时修正拖动矩形（只改矩形、不设 handled），并用 SizeChanged 防抖贴合做兜底；用户手动拉宽后窗口必须自己回到设备比例，绝不允许停在任意比例",
+      "reason": "2026-11-08 用户贴图指出黑边，实测窗口被拉成 961×1051（比例 0.914）而设备是 0.625，画面按 Stretch.Uniform 居中 → 左右各约 170 DIP 黑边。用户明确要求「缩放完全跟随设备的屏幕比例」",
+      "fix": "OnWndProc 处理 WM_SIZING：按 _windowAspect（窗口整体比例，含 chrome）反算另一维并按拖动边/角锚定；最小尺寸要整体缩放，否则 MinWidth/MinHeight 会顶破比例。钩子里 handled 必须保持 false —— 设 true 会吞掉 DefWindowProc，窗口将完全拉不动。SizeChanged 里 420ms 防抖再贴一次兜底（_windowAspect<=0.05 即尚未贴合时不吸附，否则会抢在侧栏收起前贴成宽窗口）；验证方法：SendMessage(WM_SIZING) 后读回钩子原地改写的 RECT —— 该 RECT 即系统在真实拖动中会应用的尺寸，等价于真人拖动，无需真实鼠标",
+      "date": "2026-11-08",
+      "verified": {
+        "method": "SendMessage(hwnd, WM_SIZING=0x0214, edge, &RECT) 后读回同一块内存（钩子用 Marshal.StructureToPtr 原地改写）",
+        "cases": {
+          "拖右边缘 -160 (WMSZ_RIGHT)": "输入 639x1352 → 改写 639x1081，ratio 0.5911（差 +0.0001）",
+          "拖底边 -160 (WMSZ_BOTTOM)": "输入 799x1192 → 改写 704x1192，ratio 0.5906（差 -0.0004）",
+          "拖右下角 -160,-80 (WMSZ_BOTTOMRIGHT)": "输入 639x1272 → 改写 752x1272，ratio 0.5912（差 +0.0002）",
+          "拖左边缘 +160 (WMSZ_LEFT)": "输入 639x1352 → 改写 639x1081，ratio 0.5911（差 +0.0001）",
+          "拖顶边 +160 (WMSZ_TOP)": "输入 799x1192 → 改写 704x1192，ratio 0.5906（差 -0.0004）"
+        },
+        "fallback": "SetWindowPos 强设 961x1051 → 1.5s 内回到 799x1352（ratio 0.5910）",
+        "visual": "tmp/win_print.png（PrintWindow 抓被全屏游戏遮挡的窗口）：画面区左右无黑边，平板页铺满",
+        "date": "2026-11-08"
+      }
+    },
+    "capture_emits_on_change_only": {
+      "statement": "OH_AVScreenCapture 是 surface 模式，屏幕没变化就不产生新帧；但编码器已开启「重复上一帧」补偿（见 encoder_repeat_previous_frame），所以 PC 侧实测静止时也是 30~33fps，不再是 0fps。此条只用来解释采集层语义，不要再据此认定「静止低帧是正常行为」",
+      "reason": "2026-11-08 首次实测（未开重复帧时）：屏亮静止 8s presented 完全不动、presentFps 0.0；开重复帧后同一场景稳定 30~33fps。运动段（设备侧 for 循环连续滑动）两次实测均 28~37fps",
+      "fix": "PC 侧仍保留「画面静止」迟滞判定（<6fps 积分 3s）作为兜底：若某些 ROM 不认 REPEAT_PREVIOUS 的两个 key，编码器 configure 会自动降级重试，届时行为退回旧逻辑，UI 不会误报卡死",
+      "date": "2026-11-08"
+    },
+    "resize_must_not_refit": {
+      "statement": "用户手动缩放窗口后绝不能再调 FitWindowToDevice()：它算的是「最大贴合尺寸」，等于把用户调好的大小弹回原样。兜底只能纠正比例、必须保留用户拖到的尺寸",
+      "reason": "2026-11-08 用户反馈「窗口缩放后，有弹回原来大小」。根因是 SizeChanged 的 420ms 防抖兜底直接调 FitWindowToDevice()；另外 ResolutionChanged 未去重，设备端 ResolutionBeacon 周期重报同一分辨率也会再触发贴合，用户缩放后会被反复顶回 799x1352",
+      "fix": "防抖兜底改调 CorrectAspectIfNeeded()：只在 |实际宽 - 高×_windowAspect| > 1.5 时把宽度拉回比例（高度保留），宽度会顶出工作区时反过来按可用宽度定高；WindowState 非 Normal 直接跳过。ResolutionChanged 增加 lastW/lastH/lastFolded 去重，分辨率没变不重新贴合",
+      "verified": {
+        "case1": "等比缩到 70%：799x1352 → 559x946，1.4s 后仍是 559x946（旧版会弹回 799x1352）",
+        "case2": "故意只加宽 120px：宽度被纠正回 559、高度保留 946，比例守住",
+        "startup": "启动 [fit] 从 3 次降到 1 次（去重生效）"
+      },
+      "date": "2026-11-08"
+    },
+    "mf_h264_needs_consecutive_distinct_frames": {
+      "statement": "Media Foundation 的 CMSH264DecoderMFT 必须先累积到「内容不同」的连续帧才会吐出第一帧：单独喂一帧（哪怕 118KB 完整 SPS+PPS+IDR）解出 0 帧且 error=0；把同一帧重复 3/5/8 次仍解出 0 帧；而真实连续不同帧喂到第 8 帧就出图。判「解不出」时不要先怀疑码流",
+      "reason": "2026-11-08 用项目自带 mfde 离线解码器逐条验证：tmp/gate02live.h264（真实连续帧）→ 首帧解码成功；one_key.h264（单帧 118797B）→ 0 帧；rep_3/5/8.h264（同一帧重复）→ 全 0 帧；test.h264（SPS+PPS+3 个相同 IDR）→ 0 帧。设备重放缓存 IDR 每次都是同一帧，因此重连必然卡住等用户真的去动屏幕",
+      "fix": "不要靠「重复喂缓存 IDR」「拆/并 sample」「补 SPS/PPS」来救首帧 —— 这三条都试过且无效。正解在编码端：让设备持续产出 frame_num/POC 递增的帧（encoder_repeat_previous_frame）",
+      "verified": {
+        "single_frame_118kb": "0 帧，错误 0",
+        "same_frame_x8": "0 帧，错误 0",
+        "real_consecutive_x8": "首帧解码成功 1600x2560，20 帧 0 错误"
+      },
+      "date": "2026-11-08"
+    },
+    "encoder_repeat_previous_frame": {
+      "statement": "编码器必须配置 OH_MD_KEY_VIDEO_ENCODER_REPEAT_PREVIOUS_FRAME_AFTER=33 与 OH_MD_KEY_VIDEO_ENCODER_REPEAT_PREVIOUS_MAX_COUNT=-1：无新帧时按 33ms 重复编码上一帧（frame_num/POC 递增，算真帧）。这是「PC 重连首帧 10~13s」的根治手段，同时让静止画面保持 30fps",
+      "reason": "2026-11-08 定位：重连时设备只重放同一个缓存 IDR，MF 视为重复帧拒绝输出（见 mf_h264_needs_consecutive_distinct_frames），只能干等用户真的去动屏幕。两个 key 由 API 18 引入（本机 API 26 可用），仅 surface 模式、仅 configure 阶段生效",
+      "fix": "在 harmoscap.cpp 的 configure 段由 buildFormat(lambda) 统一加两个 key；configure 失败时自动去掉这两个 key 重试一次并打 CAPI_LOGW，保证老 ROM 不会整机不可用",
+      "verified": {
+        "first_frame": "重连首帧 3 次实测均为 2.0s（修复前 10~13s，最差 51s 含等授权）",
+        "static_fps": "平板画面完全静止时 PC 侧 30~33fps，平板自报 31~33fps",
+        "side_effect": "静止时编码码率约 10~11Mbps（CBR 20000kbps 目标下），比修复前的 0fps/0kbps 高，属预期代价；如需省电可把 AFTER 放宽到 100ms",
+        "build": "HAP 33 tasks BUILD SUCCESSFUL；PC dotnet build 0 警告 0 错误"
+      },
+      "date": "2026-11-08"
+    },
+    "screen_consent_cannot_be_permanent": {
+      "value": "平板/手机上的三方应用无法让 AVScreenCapture 的隐私弹窗（「允许 HarmLink 使用你的屏幕？」）永久免除。SDK PermissionDefinitions.json 实测：CUSTOM_SCREEN_RECORDING 是 system_basic 且 deviceTypes 只有 [2in1,tv]；EXEMPT_CAPTURE_SCREEN_AUTHORIZE / CAPTURE_SCREEN / CAPTURE_SCREEN_ALL / GET_SCREEN_CONTENT 全是 system_core。唯一平板可得的 CUSTOM_SCREEN_CAPTURE（normal / user_grant）只能让「权限申请框」一次性记住，不能让 StartScreenCapture 免隐私确认。",
+      "impact": "「永久不弹」在当前签名档位下不可达，不要再往权限方向试。可行解是压缩重弹次数：会话进程内单例常驻，一次授权覆盖整个进程生命周期；只有进程被杀后的首次启动才弹一次。",
+      "date": "2026-11-08"
+    },
+    "session_singleton_survives_pages": {
+      "value": "SessionService.shared() 进程内单例；start() 幂等（started=true 时只重报 ROLE+RESOLUTION，不重建 NativeVideoSource）；SessionPage.aboutToDisappear 只调 pauseStream()，全量释放只走「结束投屏」按钮 → session.stop()",
+      "impact": "返回主页再进会话页、暂停后继续，均不重新弹录屏授权；实测 s12 零弹窗、按钮变「继续投屏」，继续后 30fps 立即恢复（日志「实时码流恢复（采集未中断，无需重新授权）」）",
+      "date": "2026-11-08"
+    },
+    "custom_screen_capture_declared": {
+      "value": "module.json5 声明 ohos.permission.CUSTOM_SCREEN_CAPTURE（user_grant 必须带 reason + usedScene，否则 PreBuild 报 00303218），EntryAbility.onCreate 首次 requestPermissionsFromUser",
+      "impact": "冷启动不再重复弹「允许 HarmLink 截取你的屏幕」；但对 AVScreenCapture 隐私弹窗无效，两者是不同门槛，不要混为一谈",
+      "date": "2026-11-08"
+    },
+    "inject_channel_matrix": {
+      "value": "四档注入的最终落地状态：① MMI SimulateInputEvent（ohscrcpy）需系统签名，不可得；② uitest 持久 socket（<1ms 级）**可用，已成为本项目达标路径**；③ uinput 子进程（~100ms）受 hdc 进程模型限制，冷态 2s，仅作兜底；④ 辅助功能 / VirtualHid（lanlink）本机 ROM 无入口，不可得。",
+      "impact": "产品路径定档为 ②。不要再从 hdc 命令行方向优化（那是 ③ 档，瓶颈是进程模型不是参数）",
+      "date": "2026-11-08"
+    },
+    "uinput_command_form": {
+      "value": "uinput 键盘注入的正确形态是 `uinput -K -d <key> -u <key>`（按下+抬起），点击是 `uinput -T -c <x> <y>`。旧代码写的 `uinput -K -k <key> -d 1 -u 1` 中 -k 是非法参数，会被 uinput 直接拒绝",
+      "impact": "已修 UinputChannel；这解释了 GATE-03 时期 hdc 通道「注入失败」的一部分原因，不是通道本身不行",
+      "date": "2026-11-08"
+    },
+    "hdcd_session_drops_on_idle": {
+      "value": "hdc 的 TCP 会话在空闲/跨进程后即失效，`-t <ip:port>` 不会自动重连，报 `Not match target founded`；必须重新 `tconn`（约 1.8s）。因此单条注入的真实成本 = 1.8s(tconn) + 0.2s(shell)，只有紧邻的连续调用才享受 200ms",
+      "impact": "这是 hdc 通道不能作为产品路径的根本原因；任何「hdc 注入 200ms」的结论都必须标注是热态测量",
+      "date": "2026-11-08"
+    },
+    "uitest_rpc_channel": {
+      "value": "设备侧 `/system/bin/uitest start-daemon singleness &` 会加载 `/data/local/tmp/agent.so`，在本机**抽象 unix 域名空间**监听 `@uitest_socket`（不是 TCP 8012）。PC 用 `hdc fport tcp:<local> localabstract:uitest_socket` 映射到 127.0.0.1，报文格式=`_uitestkit_rpc_message_head_` + uint32 sessionId(大端) + uint32 bodyLen(大端) + JSON + `_uitestkit_rpc_message_tail_`；JSON=`{\"module\":\"com.ohos.devicetest.hypiumApiHelper\",\"method\":\"Gestures|Captures\",\"params\":{\"api\":..,\"args\":..}}`。可用 api（实测）：touchDown / touchUp / pressBack / pressHome；touchMove 待验。延迟：touchDown p50 12.94ms、touchUp p50 9.13ms、pressBack p50 149.86ms、pressHome p50 304ms。",
+      "impact": "这是 GATE-06 的达标路径。agent.so 来自 DevEco Studio 自带插件 `E:/DevEco Studio/plugins/screen-mirroring/lib/hosScrcpy-1.0.20-beta.jar` 里的 `uitest_agent_1.2.3.so`，设备上 `/data/local/tmp/agent.so` 已就位（md5 9977d66ada9fea221f830a926ac2eb6c）。",
+      "date": "2026-11-08"
+    },
+    "uitest_daemon_gotchas": {
+      "value": "踩过的三个坑（此前误判「本 ROM 不提供该通道」的直接原因）：\n1) token 不能乱填：`uitest start-daemon 123456` 会静默退出、进程都不留；必须用 `singleness`。\n2) 必须先有 `/data/local/tmp/agent.so`，否则 daemon 无扩展可加载。\n3) 监听的是抽象 unix socket `@uitest_socket`，**不是** TCP 8012；fport 要用 `localabstract:uitest_socket`，抄网上的 `tcp:8012` 必然连不上。\n另外：hdc 的 target 会话在 hdcd 侧维护，空闲 90s 实测不掉；但**每次新起的 hdc client 进程若发生在 target 掉线之后，必须先 tconn**（约 1.8s）。",
+      "impact": "以后判断「通道不存在」前，先确认 token、agent.so、socket 类型三件事",
+      "date": "2026-11-08"
+    },
+    "uitest_socket_not_reachable_from_app": {
+      "value": "方案 B（平板应用进程自己连 `@uitest_socket`，绕开 hdc）**判死**。真机证据：native 探针在应用进程内 connect 抽象 socket 返回 errno=13 (EACCES)，peerUid=-1、recvBytes=0。原因不是 agent 做 UID 白名单——agent.so 里与 Peer UID 相关的只有一行日志格式串 `Got connection from domain socket, Peer PID: %d, Peer UID: %d, Peer GID: %d`，没有任何 reject/deny 分支——而是 SELinux 跨域拒绝：应用进程域 `o:r:debug_hap:s0:...`（正式包为 normal_hap），agent 进程域 `u:r:uitest:s0`，`debug_hap`→`uitest` 的 `unix_stream_socket connectto` 未放行。\n附带确认：agent.so 里导出 `OHOS::uitest::RpcServer::StartService` / `OHOS::uitest::Driver` / `UiTestExtension_OnRun` 等 548 个已定义符号，是完整的 uitest 引擎；但即便 dlopen 进应用进程自起 RPC，注入执行仍要 uitest 域身份（MMI 校验），照样过不去。\n探针保留在会话页「🔌 探针 uitest socket（方案 B）」，随时可回归。",
+      "impact": "产品形态只能走方案 A：PC 侧随包分发 hdc.exe + `fport localabstract:uitest_socket` 持久通道（UitestRpcClient 已实现复用与断线重连，p50 74.97ms）。代价是用户需在平板上开一次「无线调试」并点允许——与 USB 调试同级的常规一次动作。不要再去试「应用内直连」「dlopen agent.so」「应用连本地 hdcd 8710」这三条。",
+      "date": "2026-11-08"
+    },
+    "canvas_tap_mapping": {
+      "value": "画面点击转发（NEXT-08 落地）的坐标映射与仲裁规则：\n1) **映射**：Image 用 `Stretch.Uniform`（贴合）/ `UniformToFill`（铺满），两者都会在控件内部产生缩放+偏移，**不能**拿「控件坐标/控件尺寸」当比例。正确做法：`scale = 贴合取 min(cw/W, ch/H)，铺满取 max(...)`；`contentW = W*scale`、`offX = (cw-contentW)/2`（铺满时 offX 为负，属裁剪）；`nx = (p.X-offX)/contentW`，越界即在黑边上 → 丢弃；设备像素用 `round(nx*(W-1))`，保证最右/最下边沿落在最后一个像素。\n2) **单击延迟注入 260ms**：WPF 的 ClickCount 只有到第二击才知道是双击，所以单击必须等一个双击窗口再发，否则「双击全屏」会先注两次单击到设备上。双击分支里先 `CancelPendingTap()`。\n3) **拖动不注入**：按下→抬起位移 >6 DIP 视为拖动，直接丢弃（INV-13 不做拖拽注入）。\n4) **节流 80ms**：连点下限。\n5) **预热**：设备握手完成后立刻在后台建链（daemon 拉起 + tconn + fport 约 1~3s），否则这笔冷启动成本砸在用户第一次点击上。",
+      "impact": "真机实测（平板 MLR-AL00 / 1600x2560 / 控件 760.9x1217.5）：归一化 (0.8,0.5) → 设备 (1279,1280)，与手工算的图标中心一致；点击后平板从桌面切到 HarmLink 前台（tmp/t6.jpeg），投屏 33fps / 2071 帧 / 0 失败。注入耗时：预热后 **93ms**（rpcReady=True、connects=1），未预热时 1223~2940ms（全是建链成本）。",
+      "date": "2026-11-08"
+    },
+    "agent_so_bootstrap": {
+      "value": "注入引擎 agent.so 的随包分发与首启部署（NEXT-09 落地）：\n1) **应用侧推不了**。/data/local/tmp 在平板上是 `drwxrwx--x shell:shell`（实测 0771），应用沙箱既不在 shell 组也没有写权限，所以「HAP 里塞一份 so、启动时自己推」这条路不通。agent.so 必须随 **PC 端**分发，由 PC 侧 hdc 推送。\n2) **落地位置**：`pc/HarmOsWin.App/assets/agent.so`（600,246 B，md5 `9977d66ada9fea221f830a926ac2eb6c`，源自 DevEco `plugins/screen-mirroring/lib/hosScrcpy-1.0.20-beta.jar` 里的 `uitest_agent_1.2.3.so`），csproj 以 `Content` + `CopyToOutputDirectory=PreserveNewest` 复制到输出目录 `assets/`。\n3) **部署判据是 md5，不是存在性**：`md5sum /data/local/tmp/agent.so` 与本地比对，不一致或缺失才 `hdc file send`，推完 `chmod 755` 再回读校验；一致则一个字节都不动（热态建链不受影响）。\n4) **顺序是硬约束：先 so、后 daemon**。若 daemon 在 so 缺失时被拉起，会加载出「空壳」——`@uitest_socket` 照样监听着、fport 照样能通、TCP 照样连上（connects=1），但每个请求都返回失败。所以必须「部署 so → 必要时 pkill → 起 daemon → tconn → fport」。so 只有被换掉时才重启 daemon，否则每次建链白付一轮冷启动。\n5) **风险注记**：agent.so 是华为 DevEco 插件自带产物，随分发包对外分发存在许可不确定性（同类参考项目 hnscrcpy 因内置华为 jar 被判禁商用）。内部自用无碍，商用前必须换实现或取得授权。",
+      "impact": "用户侧不再需要任何手工推 so 的动作，装好 PC 端、开一次无线调试即可。真机三段验证（无线，平板 MLR-AL00）：① 全新设备（删 so + 无 daemon）`agent=已推送并校验通过（md5 9977d66a…） rpcReady=True connects=1`，Back 776ms / Home 309ms（含 daemon 冷启动）；② 最刁的「空壳 daemon + so 被删」场景同样自愈，Back 776ms / Home 309ms；③ 热态复跑 `agent=已就位`（未重复推送），Back 128ms / Home 302ms，同场 hdc 566/497ms。",
+      "date": "2026-11-09"
+    },
+    "idle_bitrate_stays_default": {
+      "value": "静止画面码率 10~11Mbps **不放宽**（用户 2026-11-08 23:56 明确决定，原文「不要放宽」）。即：不改 `REPEAT_PREVIOUS_FRAME_AFTER`（保持 SDK 默认）、不切 VBR。后续会话不得以「省电 / 省流量 / 降发热」为由自行改动编码器静止帧策略；若确有需要，必须先向用户说明代价并获得当次明确批准。",
+      "impact": "平板静止时仍按当前码率输出，投屏流畅度与画质不变。此项与 INV-13（输入注入降级）、INV-05（视觉息屏）同属「用户拍板、不得静默改回」的范畴。",
+      "approved_by": "user",
+      "date": "2026-11-08"
+    },
+    "arkts_warns_all_unavoidable": {
+      "value": "HAP 编译的 7 条 ArkTS WARN **全部不可通过改代码消除**，逐条定性如下（2026-11-09 全量核对 SDK d.ts 后确认）：\n**【A 类 · 3 条】无障碍 API 被平台整体废弃**（`accessibility/AccessibilityExtAbility.ets:81/82/86`）：\n  `getWindowRootElement` / `performAction` / `injectGestureSync` 三条的 `@deprecated since 12`。\n  **关键取证：整个 `AccessibilityExtensionContext` 在 API 12 被成批废弃**——该 d.ts 里 setTargetBundleName、  getFocusElement、getWindows、actionNames、findElement 等**全部方法**都标了 deprecated，  且 **SDK 全量搜索无任何 `@useinstead` / 无替代 API**（`injectGestureSync` 仍是 `injectGesture` 的建议替代，  它自己也 deprecated）。这不是我们写法过时，是平台把这条路封了。\n  该文件仍是产品活代码（`module.json5` 声明 extensionAbility、`SessionService` 经 `LowFreqBridge` 引用），\n  但**注入已由 uitest RPC 承担并达标**（GATE-06 p95 90.42ms），无障碍通道只是保底。\n**【B 类 · 1 条】syscap 跨设备提示**（`probe/ScreenCaptureProbe.ets:83`）：`media.AVScreenCaptureRecorder` 的 syscap\n  `SystemCapability.Multimedia.Media.AVScreenCapture` 不是全设备类型共有。官方 FAQ 的消除办法是「移除不支持的 deviceTypes」——\n  而本项目 deviceTypes 就是 `[\"phone\",\"tablet\"]`，**恰是目标设备**，不能移除。代码里已用 `canIUse` 做运行时守卫，\n  属正确写法。\n**【C 类 · 3 条】权限提示非错误**（`core/InputInjector.ets:41/43/45`）：提示需 `ohos.permission.CONTROL_DEVICE`。\n  该权限是 `system_basic` + `deviceTypes:[\"2in1\"]`，**平板/手机永远拿不到**（GATE-05 实测 reqPermissionStates=-1，见既有结论）。\n  本文件是 GATE-05 回归探针（平板 20/20 返回 801，已判死），保留只为留证，**不在产品路径**。\n**结论：这 7 条是「平台废弃 + 目标设备白名单 + 探针留证」的共同产物，不是缺陷。不要为了清零而删探针或改写 API。**",
+      "impact": "编译保持 0 error / 7 warn 的稳定状态，BUILD SUCCESSFUL。已知不会随时间恶化。若将来要真正清零：A 类需整条移除无障碍通道（建议在确认 uitest RPC 长期稳定后做）、B 类需放弃 phone 或 tablet 之一、C 类需删 GATE-05 探针——三者都以损失信息或能力为代价，不值当。",
+      "date": "2026-11-09"
+    },
+    "accessibility_service_no_entry_on_rom": {
+      "value": "无障碍（辅助功能）注入通道在本机 ROM **平台级不可用**，2026-11-09 完成系统级取证，比 2026-11-07 的「设置里找不到入口」这一观察更硬：\n1) 本机设置菜单叫「**关怀和无障碍**」（不是「辅助功能」），搜「无障碍」只返回一条「无障碍快捷键」，**没有「扩展服务 / 已安装的服务」列表**。\n2) **决定性证据**：`hidumper -s AccessibilityManagerService -a '-c'` 返回 **`client num: 0`** —— 系统无障碍服务里一个客户端都没注册。`-u` 显示 `accessible: 0` / `gesture: 0`；`-w` 显示 connected window 为空。\n3) 对照：应用侧登记**完全正常** —— `bm dump -n com.harmos.mirror` 里 LowFreqAccessibility `type: 4`(accessibility)、`visible: true`、`process: com.harmos.mirror:accessibility`。**问题在平台不提供挂载入口，不在应用声明。**\n4) 这与参考项目清单 §2 早在 2026-11-07 记下的「第 4 档本机 ROM 设置里无扩展服务入口 —— 三条均排除」是同一结论；本轮把它从「菜单观察」升级为「系统服务级取证」。\n5) 叠加 API 层面：整套 `AccessibilityExtensionContext` 自 API 12 起**全部方法** deprecated 且**无 useinstead**。即使换台有入口的 ROM，这条路也是被平台废弃的方向。\n**结论：注入只保留 uitest RPC 一档（PC 侧经 hdc fport）。不要再去找那个不存在的菜单，也不要再试应用内直连。**",
+      "impact": "NEXT-07（无障碍低频注入）由「待用户开服务复测」改判为「**平台不支持，无法验证**」，其验证目标已由 GATE-06 / uitest RPC 达成（p95 90.42ms < 200ms 判据）。无障碍代码保留在仓库作跨 ROM 保底，不删；其 3 条 deprecated WARN 属平台废弃产物，不可消除。",
+      "date": "2026-11-09"
+    },
+    "clipboard_uplink_via_pastebutton": {
+      "value": "剪贴板上行（设备 → PC）**已打通**，走官方免权限安全控件 **PasteButton**（2026-11-09 真机端到端验证通过）。\n1) **先纠正一个旧误判**：本项目曾记「设备→PC 系统剪贴板读取被 READ_PASTEBOARD(system_basic) 阻断」。权限表复核后确认：`ohos.permission.READ_PASTEBOARD` 是 `user_grant` + `system_basic`，**deviceTypes 含 tablet**（不是设备形态白名单问题），所以卡点是「普通签名拿不到 system_basic 权限」，而不是「平板不支持」。\n2) **解法是官方给的第二条路**：`PasteButton` 安全控件（API 10+）。用户点击该控件时，系统临时授予 SECURE_PASTE 权限 —— **仅在 onClick 回调生命周期内有效，回调结束即回收** —— 在此窗口内可直接 `getSystemPasteboard().getData()` 读剪贴板，**不弹窗、不申请权限**。\n3) **实现要点（少一个都不行）**：\n   - 读取必须**在 onClick 回调内同步发起**，用 `getDataSync()`；不能 setTimeout / 排队到别的任务，     回调一结束权限即失效。\n   - 安全控件的 icon/text/buttonType **不支持动态修改**，样式改动会被系统判为不合规并导致授权失败；     只能定制 fontSize/fontColor/backgroundColor/borderRadius 这类通用属性。\n   - 何时发上行由 `SessionService.pushClipText` 判定并**返回 bool**：内容 hash 与 `lastClipHash` 相同时     判为「与已同步内容一致」→ 拦下并返回 false（防回环生效，**不是失败**）。     页面不能无条件报「已上行」，否则会把「读到」误报成「发成功」（本轮踩过这个坑）。\n4) **交互形态是平台强制的**：设备端不是「自动同步剪贴板」，而是**用户主动点一下「粘贴」按钮**（点即授权）。没有权限就读不了系统剪贴板，安全控件是唯一合规入口，这不是实现偷懒。\n5) 下行（PC → 设备）不受影响，仍走 `setData()`，无需权限，完整自动同步。",
+      "impact": "真机端到端验证（平板 MLR-AL00，2026-11-09 01:08）：平板剪贴板放入本地新文本 38 字符，点「粘贴」后 —— 设备日志 `剪贴板文本 → PC (38 字符, hash=39820025)`；会话页指标 `下行 0 · 上行 1`；**PC 剪贴板实际内容 `[TABLET9K2XLOCALHARMLINK-CLIP-TEST-2026]`，长度 38，与设备端完全一致**。附带旁证：浏览器输入法在输入框显示「来自剪贴板 HARMLINK-CLIP-TEST-2026-11-09-A7F3」，证明下行同步确实写进了平板系统剪贴板。",
+      "date": "2026-11-09"
+    },
+    "uitest_pointer_api_full": {
+      "value": "uitest RPC 支持的**完整指针 API 表**（2026-11-09 从 agent.so 字符串表提取 + 真机逐个验证）：\n**触摸**：`touchDown` / `touchMove` / `touchUp`\n**滚轮轴**：`AxisDown` / `AxisUp` / `AxisStop`\n**鼠标按键**：`ButtonLeftDown/Move/Up`、`ButtonMiddleDown/Move/Up`、`ButtonRightDown/Move/Up`\n**底层能力**：`Driver.injectMultiPointerAction` + `PointerMatrix.create/setPoint`（多指手势基座）\n**三键**：`pressBack` / `pressHome`（hypium 语义化，含 UI 稳定等待）\n**注意**：so 里**没有** `touchDown` 字符串（早期在 so 里搜不到是正常的）—— api 名由 PC 端在 JSON 里传入，so 只做分发，所以要在字符串表里找分发表而不是 api 名本身。\n**实测延迟**（2026-11-09，长连接复用）：\n  - `touchMove` **p50 8.4~9.6ms / p95 13.5~20ms**\n  - 30 步拖动总耗时 **365ms（约 82 步/秒）**\n  - `AxisDown` 22~29ms\n  - 完整点击（down+up）p50 57ms / p95 73ms\n**结论：拖动与滚轮都能做到接近原生，性能瓶颈不在通道而在交互策略。**",
+      "impact": "PC 端据此实现了「按下即 down + 实时 move 流 + 抬起 up」的连续手势，替代原先「等 260ms 再注入单点、且完全不转发 move」的做法。产品手感从「点一下慢半拍」变为接近原生。",
+      "date": "2026-11-09"
+    },
+    "hdc_target_must_include_port": {
+      "value": "**踩坑记录（2026-11-09，白排查了很久）**：hdc 的 target **必须是 `ip:port` 形式**，只给纯 IP 会让所有带 `-t` 的命令报 `[Fail]Not match target founded, check connect-key please`。\n更坑的是：`ExecHdcAsync` 里把 `[Fail]` 判为失败，但**进程 exit code 仍是 0**，所以只看返回码会误判成成功。排查时必须打印原始输出（已加 `UitestRpcClient.Verbose` 开关）。\n**连带教训**：`UitestRpcClient` 的 target 参数与 `InputInjector.HdcTarget` 必须同源（都带端口）；探针脚本从命令行收 IP 时要自动补 `:38803`。",
+      "impact": "修复后 GATE-06 复测：touchDown+Up p50 57.13ms / p95 72.71ms，失败 0/10。",
+      "date": "2026-11-09"
+    },
+    "hdc_fport_stale_rules": {
+      "value": "**hdc fport 残留规则陷阱（2026-11-09）**：残留的 hdcd/hdc 进程会导致 — ① `fport rm` 报 `ruler is not exist` 或根本删不掉；② `fport add` 报 `TCP Port listen failed`；③ 但**映射其实已经存在且可用**。此时若代码「add 失败即判死」，会白白失败。\n**正确策略（已落地）**：先直接尝试 TCP 连接，**连得上就跳过所有 fport 操作**（还省一次 hdc 往返）；连不上才 rm+add，然后再连一次，以 TCP 能否连上为唯一判据（不看 fport 的返回码）。\n另：本机 hdc 服务用 `hdc kill` 会报 `Kill server failed operation not permitted`，占用 28571 的残留 hdc 进程也 taskkill 不掉 —— **换端口比清理更省事**。",
+      "impact": "`UitestRpcClient.EnsureConnectedLockedAsync` 已按此改造；探针支持 `localPort` 参数便于绕开被占端口。",
+      "date": "2026-11-09"
+    },
+    "uitest_daemon_fragility": {
+      "value": "**uitest daemon 脆弱性（2026-11-09 实测）**：\n① daemon 以 **shell/root 身份运行**，`pkill`/`kill` 常报 `Permission denied` 或静默无效；`kill -9` 偶发有效，但不稳定。\n② **未配对的 `touchDown` 会把 daemon 卡死**：只发 down 不发 up，之后的请求全部排队超时（表现为所有 API 都精确等于超时值）。**必须严格 down/up 配对**。\n③ daemon 崩溃后 `/proc/net/unix` 里的 `@uitest_socket` **可能残留**，看起来还在但连上就被 RST （`ConnectionResetError 10054`）。判活要**真的连一次并发条报文**，不能只看 socket 是否存在。\n④ 恢复方式：`uitest start-daemon singleness &`（`&` 让 hdc shell 立即返回，daemon 由 init 收养）。恢复后需重建 fport。\n**产品含义**：PC 端必须有「连接失败自动重建 daemon + 重建转发 + 重试」的自愈逻辑，且手势发送要保证 down/up 配对（异常路径也要补 up）。",
+      "impact": "`MainWindow.InjectPointerAsync` 的 down/up 由 begin/end 成对触发；双击分支补发 up 收尾；拖动会话结束补 up。`UitestRpcClient` 失败后 TearDown + 重连重试一次。",
+      "date": "2026-11-09"
+    },
+    "single_file_release": {
+      "value": "**PC 端已改为单文件发布**（2026-11-09），交付形态是一个 920KB 的 `HarmOsWin.exe`，放项目根目录。\n1) **为什么必须打包**：原先的 149KB exe 只是启动壳，依赖同目录的 `HarmOsWin.dll` / `HarmOsWin.Core.dll` / `HarmOsWin.Transport.dll` / `*.runtimeconfig.json` / `*.deps.json` / `assets/agent.so`。**单独拷 exe 会在缺 DLL 时报错**，所以不能只把 exe 交给用户。\n2) **发布命令**：`dotnet publish HarmOsWin.App/HarmOsWin.App.csproj -c Release -r win-x64 -p:PublishSingleFile=true -o <out>`。\n   必须 `SelfContained=false`（本机已装 .NET 8 桌面运行时，框架依赖模式体积小得多）；   **不能开 `EnableCompressionInSingleFile`** —— 框架依赖模式下会报 `NETSDK1176`「仅在发布独立应用程序时才支持在单个文件捆绑包中进行压缩」。\n3) **agent.so 改为 `EmbeddedResource` 嵌入**（LogicalName=`agent.so`），不再用 `Content` 拷到输出目录。运行时 `ResolveAgentSoPath()` 两级回退：① 优先用 exe 旁边 `assets/agent.so`（开发/非单文件运行）；② 否则从嵌入资源释放到 `%LOCALAPPDATA%\\HarmOsWin\\agent.so`（幂等：长度一致就复用）。这样单文件发布时 agent.so 也在 exe 内，NEXT-09 的「零手工步骤」在单文件形态下同样成立。\n4) **配置文件 `harmoswin.json`**（exe 旁边）：`{\"device\": \"192.168.1.100\"}`。无 `--auto` 参数时读它，实现「双击即连」。文件缺失/格式错就退回手动连接，不影响启动。端口会随设备重启变化，变了改成 `IP:端口` 全写。",
+      "impact": "真机验证（平板 MLR-AL00）：① 单文件 exe 直接跑 `--nav-test` → `rpcReady=True / agent=已就位 / RPC 注入成功`；② 删掉设备端 `/data/local/tmp/agent.so` 与本地 assets/ 后重跑 → `agent=已推送并校验通过（md5 9977d66a…）`，证明嵌入资源释放链路完整；③ 清空参数双击运行 → 按 harmoswin.json 自动握手，平板进入投屏（34.0fps / 323 帧 / 0 失败）。",
+      "date": "2026-11-09"
+    },
+    "duplicate_session_breaks_stream": {
+      "value": "**重复连接同一地址会产生多个会话，直接搞死投屏（2026-11-09 用户实测暴露，已修）**。\n**现象**：用户连不上就反复点「连接设备」，左侧出现 `device-1` / `device-2` / `device-3` **三个同 IP 条目**。表现是「显示的只是一张图片」「不是平板界面」「完全连不上」。\n**根因有两处，叠加放大**：\n  ① `AddDevice` 只检查数量上限（3），**不查重** —— 每点一次就新建一个 device-N。\n  ② `SessionManager.Dispatch` 按 **host 匹配**：`_sessions.Values.FirstOrDefault(s => s.Host == remote.Address)` → 三个同 IP 会话，**所有包只会投给第一个**，另外两个永远收不到数据。用户切到 device-3 时，看到的是 device-1 留下的最后一张静止帧 —— 这就是「只是一张图片」的由来。\n  ③ 三个会话各自周期性发 `CMD_STREAM`，设备端判定为「PC 重新接入」，反复重放缓存 IDR，形成每秒几十次的重放死循环（实测设备端「已发 222 包 / **重放 392 次**」），真实数据根本发不出去。\n**修复**：① `SessionManager.Add` 增加同 `host:port` 去重（已存在则返回原实例）；② `Dispatch` 改为按 **host + port** 精确匹配（保留仅 host 的容错回退）；③ `AddDevice` 先 `FindByHost` 查已有会话，命中就切过去并提示「该地址已连接，已切回原会话」，不再新建。\n**回归验证**：新增 `--dup-test` 自测开关，模拟连点 3 次 —— 修复后会话数**恒为 1**（`[device-1]`），修复前会是 3。",
+      "impact": "`--dup-test` 输出：三次连接后 `会话数 = 1，会话 = [device-1]，当前 = device-1`。端到端复测：单文件启动 + 平板点「启动投屏」→ PC 画面正常显示平板桌面，状态栏 `帧率 30 fps · 延迟 6ms · 上屏帧 749 · 丢包 0 · 解码错误 0`。",
+      "date": "2026-11-09"
+    },
+    "hoscrcpy_grpc_route_no_consent": {
+      "value": "**重大发现（2026-11-09，读 HOScrcpy-python 源码 + 真机实测）：存在一条「不弹录屏授权框」的采集路径。**\n**之前记录的排除理由有误，必须纠正**：归档里写「路线 C 走 hdc，本质是 USB/调试通道，与 Wi-Fi 为主冲突」—— **这条不成立**。hdc 完全可以走无线（本项目自己的注入通道就是无线 hdc `192.168.1.100:38803`）。排除理由只剩「闭源 jar 禁商用」与「XPM 管控风险」两条，而「Wi-Fi 冲突」必须删掉。\n**参考项目用的到底是什么**（读 `HOScrcpy-python-main/hos_scrcpy/bridge/native_stream.py`）：\n  1. 把 `libscrcpy_server*.z.so` 推到设备 `/data/local/tmp/libscreen_casting.z.so`；\n  2. `uitest start-daemon singleness --extension-name libscreen_casting.z.so -scale 1 -frameRate 20 -bitRate 2000000 -p 5000 -iFrameInterval 2000 -repeatInterval 33 &`\n     —— 由 **uitest 扩展守护进程**加载它；\n  3. `hdc fport tcp:<local> localabstract:scrcpy_grpc_socket`（uitest > 6.0.2.1）或 `tcp:5000`（老系统）；\n  4. 明文 gRPC 调 `ScrcpyService/onStart` 服务端流，`payload['data'].val_bytes` 就是裸 H.264 块。\n**为什么它不弹授权框**：so 内部用的是 `NativeStartScreenCopy`（见 so 字符串表 `native_screen_encoder.cpp`），并依赖 `libdm.z.so` / `libgrpc.z.so`、导出 `UiTestExtension_OnInit` —— 这是**系统内部能力**，由 uitest 扩展（系统身份）调用，**不经过公开 SDK 的 `AVScreenCapture`**。旁证：整个参考项目源码里**搜不到 `AVScreenCapture`，也搜不到「授权/弹窗/permission」任何字样**。\n**本项目真机实测（平板 MLR-AL00，2026-11-09 03:16~03:23）**：\n  - 设备上**早已存在** `/data/local/tmp/libscreen_casting.z.so`（247989B = 6.9 版，md5 8c8df9a96af21aac71d5091ffa0b1477）；\n  - 起扩展守护进程 → `ps` 可见进程存活；`/proc/net/unix` 出现 **`@scrcpy_grpc_socket`**；\n  - `fport` 转发后 gRPC 通道就绪，`onStart` 收流正常：**首块 31B / 307ms，头部 `0000000167640034`** （`00000001` 起始码 + `67`=SPS + `64`=PPS，**标准有效 H.264**）；**8 秒收 38 块 / 160795 字节**；\n  - **全程未弹任何授权框**（截图确认：平板停在普通桌面，无「截取你的屏幕」弹窗）。\n**技术门槛**：客户端需 gRPC（Python 侧实测 `grpcio 1.85.1` 可用；注意 Python 3.13 因 wheel 未同步装不上，用 3.11 解释器 + 清华镜像可装）。C# 侧需引入 Grpc.Net.Client 或手写 HTTP/2 客户端。\n**尚未验证**：① 帧率/画质上限定档（参考项目默认 20fps / 2Mbps，远低于我们的 60fps / 16Mbps 目标）；② 该 so 版本与 API 26 的兼容性（设备上那版是 6.9-20260801）；③ 长时间稳定性（参考项目提到 SDK 原版 5s 重推会搞坏服务）；④ 商用许可（仍源自华为 jar，红线未变）。",
+      "impact": "这是**本项目的关键分叉点**：当前走 `AVScreenCapture` 必须每次冷启动点一次授权框；这条路能彻底免掉那个框，且已证明真机可用。但代价是重新引入「华为闭源 so + 依赖 hdc 调试通道 + 许可不确定性」。**结论：技术可行，但需要用户决策是否切换 —— 不能由 AI 单方面改架构。**在此之前，现有 AVScreenCapture 路径保持不动。",
+      "date": "2026-11-09"
+    },
+    "hoscrcpy_benchmark": {
+      "value": "**参考方案（uitest 扩展 + gRPC）真机性能实测 —— 2026-11-09，平板 MLR-AL00（1600×2560，约 90Hz）。**\n**🔴 最重要的发现：`-frameRate` 是无效参数，真正的帧率参数是 `-frameRefreshInterval`。**\n依据是设备端日志 `[rpc_server.cpp:(parse_params)]` 的完整解析结果：\n```\nscale: 1\nframeRefreshInterval: 1        ← 真正的帧率控制\nframeBitRate: 20000000\niFrameInterval: 1000\nrepeatInterval: 16\nscreenId: -1 / appPid: 4294967295 / mode: 0 / saveFrame: 0\nscrcpySocketName: scrcpy_grpc_socket\n```\n**根本没有 frameRate 这一项** —— 传 `-frameRate 60` 只会被 argv 读进去，从不参与配置。\n参考项目源码用的正是 `-frameRate`，所以它的 20fps 默认值其实是「未配置帧率」的表现。\n**实测数据（30 秒长测，动态画面）**：\n| 配置 | 实测帧率 | 实测码率 | 分辨率 |\n|---|---|---|---|\n| `-frameRate 30`（无效参数） | 44.7 fps | 3.50 Mbps | 1600×2560 |\n| `-frameRate 60`（无效参数） | 46.7 fps | 7.76 Mbps | 1600×2560 |\n| **`-frameRefreshInterval 1`** | **89.5 fps** | **14.88 Mbps** | **1600×2560** |\n| `-frameRefreshInterval 6` | 89.1 fps | 14.81 Mbps | 1600×2560 |\n| fri=1 / 30 Mbps | 89.2 fps | 21.87 Mbps | 1600×2560 |\n**结论：89 fps ≈ 设备硬上限**（屏幕刷新率约 90Hz），frameRefreshInterval 传 1 或 6 结果相同。\n**码流质量**（NAL 分布干净）：`{SPS×1, PPS×1, IDR×少量, P×大量}`，**无 B 帧**，适合实时传输。\nIDR 平均 102KB / P 帧平均 20KB（20Mbps 档）。清晰度方面 **scale=1 即原生 1600×2560，无降采样**；scale=2→800×1280、scale=3→544×864、scale=5→320×512（scale 有效范围 1~5）。\n**首块延迟** 103~140ms。",
+      "impact": "这条路径**完全满足 1080p/60fps 的原始性能目标**（实际更高：1600×2560@89fps），且**全程不弹录屏授权框**。之前的「参考项目只有 20fps」的印象是错的 —— 那是参数没用对。**唯一剩余门槛仍是许可**：so 源自华为 jar，商用需授权或换实现。",
+      "date": "2026-11-09"
+    },
+    "hoscrcpy_pitfalls": {
+      "value": "**参考方案实测踩坑（2026-11-09，逐条真机验证）**：\n① **so 版本极度敏感**。`libscrcpy_server_unix_6.8-20260801.z.so` 在本平板能出流；**6.5-20260313（参考项目注释里推荐的版本）与 6.9-20260801 都「通道就绪但永不出帧」** —— 守护进程活着、`@scrcpy_grpc_socket` 在、gRPC 能连，就是一个字节视频都不来。设备上原生自带的就是 6.8 版（`/data/local/tmp/libscreen_casting.z.so`，md5 `8c8df9a96af21aac71d5091ffa0b1477`）。**换 so 版本必须先杀守护进程再推**，否则 `hdc file send` 报 `operation not permitted`。\n② **`hdc file send` 必须用相对文件名 + cwd 切到文件目录**。传绝对路径会被拼到当前工作目录后面，报 `Error opening file: no such file or directory`（本项目已记录的坑）。\n③ **hdc 会话互踢会毁掉测量**。想「一边用 hdc 制造动态画面、一边用 hdc 收流」是不可能的 —— 两条会话互相踢，导致画面停摆，测出来全是「静止画面」的假数据（帧率虚低到 1~2fps）。**正确做法：把动画放在设备端后台自循环（`(while ...) &` 一次性下发），测试期间完全不碰 hdc。**\n④ **必须有动态画面才测得出真数据**。HarmonyOS 编码器静止不出帧，静止时块间隔会出现固定 ~2950ms 的周期（`REPEAT_PREVIOUS_FRAME_AFTER` 的行为）。**任何未加动态画面的帧率/码率测量都是无效数据。**本轮前面几轮就是栽在这里，白跑了 4 轮。\n⑤ **gRPC 的「块」等于「帧」**（实测 1341 块 = 1340 帧），但**不能想当然** —— 要得到真实帧率必须解析 H.264 数 slice NAL（type 1 与 5 各表示一帧）。本次为此专门写了 NAL 解析器（`tmp/h264_probe.py`，含 SPS 解析取 width/height）。\n⑥ 设备端 shell 没有 `awk`/`getprop`，但 `/system/bin/sh` 的 `while`/`$((...))` 可用。",
+      "impact": "这些坑直接决定了测量结果真伪。①②③④ 各让一轮数据作废，⑤ 是「不解析码流就得不到真实分辨率/帧率」的方法论修正。",
+      "date": "2026-11-09"
+    }
+  },
+  "invariants": [
+    {
+      "id": "INV-01",
+      "rule": "所有设备调试一律走无线，禁用 USB 调试通道。唯一例外：P2P 验证阶段可临时破例（用户 2026-11-08 00:46 批准），须用 hdcw.sh mode usb 显式切换，验证完立即恢复 wireless 并复测无线 hdc",
+      "why": "USB 在位时 hdcd 会踢掉 TCP 通道；用户 2026-11-07 明确要求。USB 破例会掩盖「P2P 下无线 hdc 是否存活」，故必须补测",
+      "how": "统一用 scripts/hdcw.sh，不手敲 hdc"
+    },
+    {
+      "id": "INV-02",
+      "rule": "hdc 调用必须严格串行，禁止任何形式的并发",
+      "why": "两条 hdc 并行 = 会话立刻死（实测）"
+    },
+    {
+      "id": "INV-03",
+      "rule": "构建/安装/启动必须获得用户当次明确授权",
+      "why": "用户 2026-10-29 立的硬规则；一次授权只覆盖当次",
+      "authorization_log": "2026-11-08 00:47 用户『开始执行』覆盖 GATE-S1 构建/装机；2026-11-08 01:16 用户『好的执行，你自行编译验证』覆盖本轮 GATE-L0 的全部编译/装机/真机验证"
+    },
+    {
+      "id": "INV-04",
+      "rule": "视频采集必须走 AVScreenCapture（HAP 内），禁止用 snapshot_display 轮询做投屏",
+      "why": "实测 1.3fps，物理上不可能"
+    },
+    {
+      "id": "INV-05",
+      "rule": "投屏期间屏幕必须肉眼呈黑态且电脑端画面实时刷新（视觉息屏）：S1 压低物理屏背光 + S2 hdc 覆盖息屏时间（心跳重发） + Q' 锁屏时 PC 端本地锁屏页。不要求设备进入物理休眠",
+      "why": "2026-11-08 用户明确批准降级。原「物理息屏/锁屏后仍实时刷新」在三方应用层不可达：A1/A2/A3/B 四条路实测排除；华为官方多屏协同同样在锁屏时改画本地锁屏页",
+      "previous_rule": "息屏/锁屏后必须保持实时刷新，这是硬性基线，不接受降级为「保连接」「阻止息屏」等替代方案",
+      "approved_by": "用户 2026-11-08 00:46 明确批准，非静默降级",
+      "accepted_tradeoff": "不是真休眠，功耗降不到休眠水平；LCD 可能漏光；禁止用合成层黑遮罩（会被 AVScreenCapture 一起采进去）",
+      "status": "方案已定，GATE-S1 已于 2026-11-08 真机通过"
+    },
+    {
+      "id": "INV-06",
+      "rule": "分辨率/帧率/码率不得硬编码，统一走配置常量",
+      "why": "手机平板分辨率不同，且需按网络自适应"
+    },
+    {
+      "id": "INV-07",
+      "rule": "性能基线 1080p / 60fps / 端到端 <100ms",
+      "why": "用户 2026-11-07 确定"
+    },
+    {
+      "id": "INV-08",
+      "rule": "设备角色不得写死。手机/平板/电脑实现同一套源端与宿主端接口，谁投谁由连接时协商",
+      "why": "架构要为三端同构留位置"
+    },
+    {
+      "id": "INV-09",
+      "rule": "禁止把 GPL / 闭源受限代码复制进仓库。oink 是 GPL-3.0，hnscrcpy 的内置 jar 禁商用，lanlink 无 LICENSE",
+      "why": "许可证红线，见 docs/参考项目-能力清单.md"
+    },
+    {
+      "id": "INV-10",
+      "rule": "签名证书（*.p12 / *.cer / *.p7b）与密码绝不入库",
+      "why": "安全事故"
+    },
+    {
+      "id": "INV-11",
+      "rule": "平板端用 ArkTS + C++ NAPI，电脑端用 C# / .NET 8 + WPF，不得中途换栈",
+      "why": "选型已定，中途换栈等于重写"
+    },
+    {
+      "id": "INV-12",
+      "rule": "链路改造分阶段：先在现有家庭 LAN 上换 UDP + 心跳并测延迟；达标就不上 P2P，不达标才进 P2P 探针",
+      "why": "124ms 空闲首包是 Wi-Fi 省电唤醒所致，心跳即可消除；P2P 仅省 1-5ms 却可能踢掉无线 hdc（用户 2026-11-08 批准分阶段方案）",
+      "resolution": "2026-11-08 GATE-L0 实测达标（LIGHT p95=16ms / FULL p95=31ms，均 <100ms），按本条规则**不上 P2P**；GATE-L1 不再启动，USB 临时例外作废，链路固定为家庭 LAN + HWP v1 UDP 双通道"
+    },
+    {
+      "id": "INV-13",
+      "rule": "需求 2 反控能力固定为「三键导航 + 低频点击」，不得静默恢复任意坐标高频鼠标/键盘注入；任何扩大能力范围的改动必须重新获得用户明确批准",
+      "why": "用户 2026-11-08 02:58 明确接受降级。三条注入路径已真机判死，高频注入在现有可达能力内无解",
+      "approved_by": "用户 2026-11-08 02:58 明确批准，非静默降级",
+      "previous_rule": "电脑鼠标键盘注入设备（需求 2 原文）",
+      "out_of_scope": "任意坐标 mouse move 事件流、连续拖拽、键盘逐键输入",
+      "status": "生效"
+    }
+  ],
+  "decisions": [
+    {
+      "id": "DEC-01",
+      "what": "采集与编码在 HAP 内完成，走 AVScreenCapture + OH_VideoEncoder，Surface 零拷贝",
+      "why": "唯一能同时满足 60fps 与 <100ms 的路径"
+    },
+    {
+      "id": "DEC-02",
+      "what": "输入注入走 hdc 调试通道（uinput / uitest）",
+      "why": "用户选定；普通应用拿不到 INJECT_INPUT_EVENT 权限",
+      "status": "实测不成立（2026-11-08 GATE-03）",
+      "verified": "uitest uiInput 4/4 成功但每条 2.0~2.6s（瓶颈是 hdc 会话重建，不是 uitest 本身）；uinput 4/4 参数错误；常驻 hdc shell 不支持 stdio TTY。无法达到 DEC-02 预设的 <30ms",
+      "note": "本条只记录实测结论，未擅自改需求；替代通道见 DEC-08，需用户重新拍板"
+    },
+    {
+      "id": "DEC-03",
+      "what": "UI 形态：单窗口多标签，一次看一台",
+      "why": "用户选定"
+    },
+    {
+      "id": "DEC-04",
+      "what": "网络：家庭局域网同网段直连，不做 NAT 穿透，不做鉴权；P2P 仅作为阶段 1 备选",
+      "why": "自用工具；用户 2026-11-08 批准分阶段（见 INV-12）"
+    },
+    {
+      "id": "DEC-05",
+      "what": "码率自适应 2–20Mbps，初始 8Mbps；编码基线参考官方 16Mbps / IDR 5 / 60fps",
+      "why": "实测 Wi-Fi 峰值 25Mbps，留余量"
+    },
+    {
+      "id": "DEC-06",
+      "what": "UDP 双通道：视频不可靠（序号+时间戳，丢包不重传，乱序丢帧），控制/输入/剪贴板可靠有序（窗口 1 + ACK + RTO≈20ms）；20-50ms 双向心跳兼做 RTT 与防 Wi-Fi 休眠；MTU ≤1200B",
+      "why": "重传旧帧只会推高延迟；心跳是 124ms 空闲首包的对症解法",
+      "verified": "2026-11-08 GATE-L0 真机通过（30ms 心跳 / 16Mbps 满载 p95=31ms、28476 包零丢失）。规格落在 docs/传输层协议-HWP-v1.md；双端实现 HwpPacket.ets / UdpTransport.ets / pc/HarmOsWin.Transport",
+      "resolved": "2026-11-08 已改为 RtoEstimator（srtt + 4*rttvar，钳位 20~200ms）。GATE-02 真机：首个 ACK 98.6ms 使 RTO 放宽到 200ms，随后收敛到 68ms；10 个输入事件 ACK p50=10.88ms、max=18.8ms，无超时"
+    },
+    {
+      "id": "DEC-07",
+      "what": "手动锁屏时 PC 端显示本地锁屏页 + 解锁提示，亮屏恢复真实画面，不自动 wakeup 顶掉用户锁屏",
+      "why": "用户 2026-11-08 选定；华为官方多屏协同采用同一交互"
+    },
+    {
+      "id": "DEC-08",
+      "what": "输入注入通道结案：保留三键导航（返回/主页/多任务）+ 低频点击，放弃任意坐标高频鼠标/键盘注入",
+      "why": "hdc 是每条命令都要重建的短连接；API 26 原生注入 API 与 CONTROL_DEVICE 权限 均被 2in1 设备形态白名单排除，与 TIMEOUT_SCREENOFF_DISABLE_LOCK 同款限制",
+      "status": "已结案（2026-11-08 02:58 用户明确批准降级，非静默）",
+      "evidence": "tmp/gate05_r1.json / tmp/gate05_r2.json / tmp/g5_r2_result.jpeg / AGENTS.facts.measured.control_device_permission / INV-13 / GATE-06",
+      "decision": "用户从三条候选中选择「明确接受只保留三键导航 + 低频点击」",
+      "followup": "NEXT-07：用 AccessibilityExtensionAbility 实现三键与单点并跑 GATE-06；需用户当次授权编译装机，且需用户在设备系统设置中手动开启无障碍服务"
+    }
+  ],
+  "definition_of_done": {
+    "light": [
+      "改动文件清单列出",
+      "编译 0 error 0 warning",
+      "INDEX.json 同步"
+    ],
+    "full": [
+      "构建 0 ArkTS warning",
+      "受影响的 UI/输入/剪贴板在真机验证过，附实测数据",
+      "PROGRESS.json 同步（含 HAP 大小与关键指标）",
+      "SESSIONS/<日期>.json 已生成",
+      "INDEX.json 与 README 关键词表一致，关键词唯一",
+      "AGENTS.json 仅在契约变化时更新，并记 changelog"
+    ],
+    "report_format": [
+      "1 本轮做了什么（一句话）",
+      "2 改动文件（路径 + 作用）",
+      "3 编译结果（任务数 / warn / error）",
+      "4 真机验证数据（有则写实测值）",
+      "5 未完成项与原因",
+      "6 风险变化",
+      "7 下一步建议",
+      "8 治理文件同步状态"
+    ]
+  },
+  "commands": {
+    "env": {
+      "DEVECO_SDK_HOME": "E:/DevEco Studio/sdk",
+      "NODE_HOME": "E:/DevEco Studio/tools/node",
+      "JAVA_HOME": "E:/DevEco Studio/jbr"
+    },
+    "hdc": "scripts/hdcw.sh shell|send|recv|install|port|status|mode|dim|undim|brightness|keepon|keepoff|screenoff",
+    "build_tablet": "export JAVA_HOME/NODE_HOME/DEVECO_SDK_HOME 且 PATH 必须含 $JAVA_HOME/bin，否则 PackageHap 报 spawn java ENOENT；在 tablet/ 下执行 hvigorw assembleHap --no-daemon（需先授权）",
+    "build_pc": "DOTNET_ROOT=C:/Users/W/.dotnet，dotnet build pc/HarmOsWin.sln -c Release（本机系统 dotnet 只有 6.0 runtime 无 SDK，已补装 8.0.427 到用户目录）",
+    "l0_probe": "python scripts/l0_probe.py [--build] [--idle N] [--active N]，结果 tmp/l0_result.json",
+    "gate02_probe": "平板先启动「统一会话」页 → dotnet pc/HarmOsWin.Probe/bin/Release/net8.0/HarmOsWin.Probe.dll gate02 [host] [seconds] [outPath]，结果 tmp/gate02_result.json",
+    "gate03_probe": "python scripts/gate03_probe.py [--count N] [--out tmp/gate03_result.json]，串行对比 uitest/uinput",
+    "hdc_conn_note": "hdc tconn 已连接时返回 'Target is connected, repeat operation'；hdcw.sh ensure_conn 现已同时接受 Connect OK / Target is connected / already connected，避免每次白跑 kill+start+sleep 1（实测 3.6~5.3s → 2.0~2.6s）",
+    "install": "hdcw.sh install <hap>（需先授权）",
+    "screenshot": "hdcw.sh shell 'snapshot_display -f /data/local/tmp/s.jpeg' && hdcw.sh recv /data/local/tmp/s.jpeg s.jpeg",
+    "gate05_probe": "平板启动统一会话 → dotnet pc/HarmOsWin.Probe/bin/Release/net8.0/HarmOsWin.Probe.dll gate05 [host] [count] [outPath]；权威报告 tmp/gate05_r2.json"
+  },
+  "verification_gates": {
+    "GATE-01": {
+      "name": "视觉息屏（S1）",
+      "must_prove": "物理屏肉眼呈黑态时 AVScreenCapture 仍产出非黑的目标应用画面；亮度可恢复；应用切后台不失效。不得用合成层黑遮罩",
+      "fail_action": "回到 Q'（锁屏时 PC 本地锁屏页 + 亮屏恢复），不得把基线改回物理息屏",
+      "status": "通过（2026-11-08 真机复核，GATE-S1 结案）",
+      "verified": "uitest keyEvent 41/40 改系统亮度（与前台无关）；亮度 49→1→48→49 可恢复；15s 稳定；Brightness=3 时 AVScreenCapture 录像 8.7MB / 85s / 1600x2560，抽帧 t=10/25/40/50s 为 141/175/188/185KB 且逐帧不同，内容清晰非黑（对比历史熄屏黑帧恒定 2348B）；采集中 size 2629→4715KB 持续增长、frozen=0、无 STALL"
+    },
+    "GATE-02": {
+      "name": "采集编码推流链路",
+      "must_prove": "1080p@60fps H.264 出流，PC 端解码上屏端到端 <100ms",
+      "status": "流畅度达标 + 重连延迟优化（2026-11-08 真机复测）：稳态 PC 窗口 60fps、探针 activeFps=59.60/59.96、peakFps=63、帧间隔 p50=16 p95=29 p99=31~37 max=39~54ms、解码 0 错误、丢包 0、端到端 12.3ms。暂停→恢复首帧从 1~10s 降到 797ms（native 缓存 IDR 重放，含 3 次追加重放）。未完成：真实息屏（物理背光关闭）应用层不可达，只能做窗口前台调暗；多设备并发未测；真人手感未验收",
+      "evidence": "tmp/rs3.json（稳态 + 恢复首帧 797ms）/ tmp/clean1.json（干净回归 434 帧 0 错误）/ tmp/rs1.json（首次重放验证 924ms）/ tmp/app_metrics5.jsonl（PC 窗口 presentFps）"
+    },
+    "GATE-03": {
+      "name": "输入注入",
+      "must_prove": "uinput 与 uitest 两条通道的往返延迟，择优后单点延迟 <30ms",
+      "status": "FAIL（2026-11-08 真机）：uitest 4/4 成功但 p50=2552.6ms；uinput 0/4 成功；常驻 hdc shell 不支持 TTY。择优结果 uitest，但 DEC-02 的 <30ms 不成立，待 DEC-08 重新选型；DEC-08 已于 2026-11-08 02:58 结案，本门不再作为阻塞，仅保留为排除依据",
+      "evidence": "tmp/gate03_result.json"
+    },
+    "GATE-04": {
+      "name": "剪贴板双向",
+      "must_prove": "文本与图片双向，图片无压缩损失，防回环有效",
+      "status": "部分通过：PC→设备 文本与 PNG 分片均 ACK 且设备端重组完成（统计 剪贴板←3）；设备→PC 系统剪贴板读取被 READ_PASTEBOARD(system_basic) 阻断，装机实测 code 9568289，已降级为应用内主动推送；防回环用 FNV-1a 双端一致"
+    },
+    "GATE-L0": {
+      "name": "UDP over LAN 延迟",
+      "must_prove": "现有家庭 LAN 上，UDP 双通道 + 心跳后端到端 <100ms；达标即不上 P2P",
+      "status": "通过（2026-11-08 真机，PASS）",
+      "verified": "平板 MLR-AL00 / PC 192.168.1.102，HWP v1，30ms 心跳。IDLE(无心跳) n=12 p50=94 p95=140 max=140 mean=95ms；LIGHT(2.3Mbps) n=16 p50=15 p95=16 max=16 mean=8.75ms、4232 视频包零丢失；FULL(16Mbps) n=16 p50=15 p95=31 max=31 mean=12.62ms、28476 视频包零丢失零乱序。probe 44/44 零丢失，控制命令 3/3 ACK、超时 0。报告 tmp/l0_result.json。RTT 为往返，单向≈RTT/2，端到端 <100ms 有充足余量"
+    },
+    "GATE-L1": {
+      "name": "P2P 探针（仅 L0 不达标时）",
+      "must_prove": "鸿蒙 P2P 权限/syscap 生效、5G 建组、USB 模式下 hdc 可用、恢复无线后 hdc 存活、3 台并发可行",
+      "status": "不启动（GATE-L0 已达标，按 INV-12 不上 P2P；USB 临时例外随之作废）"
+    },
+    "GATE-05": {
+      "name": "设备端注入落地（DEC-08 探针）",
+      "must_prove": "HWP CONTROL 送达后，设备端 HAP 能否在 <30ms 内完成一次本地注入",
+      "status": "FAIL（2026-11-08 真机，两轮各 10 次）；DEC-08 已结案，FAIL 结论保留为「高频注入不可达」的证据，不再作为阻塞",
+      "verified": "轮 1（未声明权限）/ 轮 2（声明 CONTROL_DEVICE）各 10 次：syscap 20/20=true，注入成功 0/20，errCodes 全部 801，stage 全部 1（createTouchController），本地耗时 p50=p95=1ms；端到端轮 2 p50=29.18ms / p95=84.34ms。bm dump reqPermissionStates=[-1,0,0,0,-1]，首项 CONTROL_DEVICE 与末项 TIMEOUT_SCREENOFF_DISABLE_LOCK 均未授予；bm grant 子命令不存在。传输层 ACK 10/10 成功、握手重试后 PASS，证明瓶颈只在设备端注入能力",
+      "evidence": "tmp/gate05_r1.json / tmp/gate05_r2.json / tmp/g5_r2_result.jpeg"
+    },
+    "GATE-06": {
+      "name": "低频输入落地（DEC-08 结案后）",
+      "must_prove": "三键导航（返回/主页/多任务）与单点点击在设备端可达，且单次操作端到端 <200ms",
+      "status": "PASS（2026-11-08 23:23 真机验收）：uitest 持久 socket RPC 通道，单点 p50 74.97ms / p95 90.42ms",
+      "candidate": "AccessibilityExtensionAbility + injectGestureSync / accessibility Action(home, back, recentTask)：能力范围恰好覆盖三键 + 单点，无需任意坐标高频事件流，与 INV-13 一致",
+      "excluded": "① hdc 命令行注入（uitest uiInput / uinput）：受 hdc 进程模型限制，热态 200ms、冷态 2s，已排除；② 无障碍扩展服务：本机 ROM 设置里无「扩展服务」入口，已排除；③ MMI SimulateInputEvent：需系统签名，已排除。保留以上三条为排除依据，不得回退使用。",
+      "criteria_note": "判据「单点 p95 <200ms」达成（90.42ms，4.4 倍余量）。三键不参与该判定：pressBack/pressHome 是 hypium 的语义化 API，内部会等 UI 稳定，150-300ms 属「等界面切完」而非通道慢；触摸注入才是本通道的真稳态（单程 p50 约 13ms）。",
+      "unverified": "无。三条路径均已实测，结论为本机 ROM + 当前签名档位下 GATE-06 不可达",
+      "baseline": {
+        "verdict": "FAIL（全部 errCode=-2 服务未响应），但探针链路本身 PASS",
+        "handshake": true,
+        "controlAck": "8/8",
+        "resultsReceived": "8/8",
+        "stages": {
+          "4": 5,
+          "1": 1,
+          "2": 1,
+          "3": 1
+        },
+        "serviceConnected": false,
+        "endToEndP50Ms": 291.63,
+        "endToEndP95Ms": 430.25,
+        "evidence": "tmp/gate06_baseline.json / tmp/g6_baseline.jpeg",
+        "blocked_by": "用户需在平板 设置→辅助功能→扩展服务→已安装的服务 开启「HarmLink 低频操作」"
+      },
+      "result": "单点 20 次：p50 74.97ms / p95 90.42ms / max 180.95ms / 失败 0；pressBack 3 次：p50 149.86ms / p95 191.72ms；pressHome 3 次：p50 304.2ms。取证 tmp/gate06rpc.json；探针 `HarmOsWin.Probe gate06rpc`。"
+    }
+  },
+  "changelog": [
+    "2026-11-07 0.1.0 初始化：确立 11 条 invariant、5 条决策、4 个验证门",
+    "2026-11-07 0.4.0 INV-05 可行性结案：A1(窗口亮度)/A2(display 电源)/A3(TIMEOUT_SCREENOFF_DISABLE_LOCK，deviceTypes 仅 2in1)/B(虚拟屏无镜像能力) 四条应用层路径全部排除；真息屏+实时画面在鸿蒙平板三方应用上不可达，取舍待用户拍板(NEXT-01B)，INV-05 未作任何降级",
+    "2026-11-08 0.5.0 用户明确批准 INV-05 降级为「视觉息屏」(S1+S2+Q')，新增 INV-12 分阶段链路、DEC-06 UDP 双通道、DEC-07 锁屏交互；GATE-01 改写为视觉息屏验证，新增 GATE-L0/L1；INV-01 增加 P2P 验证期 USB 临时例外；非静默降级",
+    "2026-11-08 0.6.0 GATE-L0 实现并真机通过：新增 HWP v1 协议规格、ArkTS 源端 UDP 双通道与 L0 探针页、C#/.NET8 传输层与测量控制台、一键测量脚本；实测 IDLE p95=140ms → 心跳后 LIGHT 16ms / FULL(16Mbps) 31ms，判定 PASS，按 INV-12 不上 P2P、GATE-L1 不启动、USB 例外作废；补装 .NET 8 SDK；清理既有 ArkTS WARN 8→1（仅剩 ScreenCaptureProbe syscap 提示）",
+    "2026-11-08 0.7.0 按 NEXT-02~06 顺序全量落地：新增 docs/架构-HarmOs-Win.md 架构事实源，HWP 扩展 v1.1(CH_STREAM/8 个命令字/自适应 RTO)，设备端 core/ + capture/ + SessionPage，PC 端 HarmOsWin.Core(输入/剪贴板/会话/解码接口) 与 HarmOsWin.App(WPF 单窗口多标签+三键+Q' 锁屏页)；双端编译通过(HAP 33 任务仅 1 条既有 syscap WARN，PC 4 项目 0 warn 0 error)。真机 GATE-02 部分通过(235 帧零丢帧)、GATE-03 FAIL(hdc 每条 2~3s 重连，DEC-02 不成立 → 新增 DEC-08 待拍板)、GATE-04 部分通过(READ_PASTEBOARD system_basic 装机失败 code 9568289)。修复 hdcw.sh tconn 返回值误判",
+    "2026-11-08 0.8.0 按用户拍板执行 DEC-08（HWP CONTROL + GATE-05 探针）：新增设备端 InputInjector.ets、PC 端 Gate05.cs 与 CMD_INJECT_RESULT(0x80)/InjectReport 19B 回传；真机两轮各 10 次证明原生注入 API 在平板 801、CONTROL_DEVICE 仅 2in1 且 ACL profile 为空，DEC-08 部分结案；回滚无效权限声明，修复 hdcw.sh status 的已连接返回值误判。ArkTS WARN 由 1 条增至 4 条（1 既有 syscap + 3 条探针权限告警，声明权限后仍不消除），如实记录",
+    "2026-11-08 0.9.0 用户 02:58 明确拍板 DEC-08 收窄为「三键导航 + 低频点击」（非静默降级）：新增 INV-13 固定能力边界、DEC-08 标记结案、GATE-03/05 由阻塞转为排除依据、新增 GATE-06 低频落地判据（<200ms，走无障碍手势注入；hdc 2.5s 明确排除）。本轮只同步治理与记忆，未改代码、未编译装机",
+    "2026-11-08 1.0.0 按用户 03:02『好的，执行』开工 NEXT-07：新增 accessibility/LowFreqBridge.ets (loopback 9021/9022 本地桥) 与 AccessibilityExtAbility.ets、accessibility_config.json、module.json5 extensionAbilities；CMD_NAV/CMD_INPUT 改走无障碍低频动作，CMD_INJECT_RESULT 复用回传；新增 pc/HarmOsWin.Probe/Gate06.cs。双端编译通过（HAP 33 任务 / 7 条 WARN；PC 4 项目 0 warn 0 error），装机成功并确认服务已注册。GATE-06 基线 8/8 链路通但全部 errCode=-2（服务未开启），等待用户在设备设置开启后复测。设备停在统一会话页、wireless、无状态残留",
+    "2026-11-08 1.1.0 用户选定 C『先把 GATE-02 实时画面做出来』：新增 tablet/entry/src/main/cpp（CMakeLists + harmoscap.cpp，OH_AVScreenCapture WithSurface + OH_VideoEncoder AVC + TSFN 回传）与 build-profile externalNativeOptions、libharmoscap 类型声明；NativeVideoSource 改为真接实现并支持推送式出帧，SessionService 实时源不再走 33ms 轮询；新增 pc/HarmOsWin.Core/MfInterop.cs、MfH264Decoder.cs、H264Sps.cs 与 pc/HarmOsWin.Probe/Gate02Live.cs、MfDecodeFile.cs；MainWindow 用 WriteableBitmap 上屏。真机 25s：161 帧 / 18.3MB / 0 丢包 / 0 解码错误，解出真实画面，平均 6.4fps、首帧 14.9s —— 画面已打通，帧率未达标",
+    {
+      "version": "1.2.0",
+      "date": "2026-11-08",
+      "change": "GATE-02 帧率达标：native 直发（分片+sendto 下移 C++）；纠正历史帧率误判（采集静止不出帧 + 授权等待污染分母）；PC 探针新增 peakFps/activeFps 口径",
+      "basis": "真机 40s 动态画面实测 peakFps=62 / activeFps=51.14 / 解码错误 0"
+    },
+    {
+      "version": "1.3.0",
+      "date": "2026-11-08",
+      "change": "GATE-02 流畅度收尾：PC 收包/解码分离 + 8MB 收缓冲（丢包 0.59%→0）；解码线程只保留最新帧；设备侧 CBR + SetMaxVideoFrameRate 封顶 60fps；暂停发送免重新授权；推流期间每 2s 重报分辨率；端到端延迟打点（epoch + 最小单向延迟标定，实测 8.5ms）；WPF 增加 --auto/--metrics/--snapshot 自动化验收",
+      "basis": "PC 窗口 presentFps 中位 60；探针 activeFps=59.84/p99=31ms/0 丢包/0 解码错误"
+    },
+    {
+      "version": "1.4.0",
+      "date": "2026-11-08",
+      "change": "平板端全面优化：① 长时任务接进正式会话（此前只有探针页有）② native 缓存 IDR + 三重追加重放，恢复首帧 1~10s → 797ms ③ 视觉息屏降级为「窗口前台调暗」（应用层无系统亮度 API，如实记录局限）④ ArkTS WARN 11 → 9（消掉自己引入的 2 条，其余为必须保留）",
+      "basis": "真机稳态 activeFps=59.96 / p99=31ms / 0 丢包 / 0 解码错误；恢复首帧 797ms"
+    },
+    {
+      "version": "1.5.0",
+      "date": "2026-11-08",
+      "change": "GATE-02 复核 + 两个真 bug 修复：① 编码器把 SPS/PPS 单独成帧，缓存 IDR 缺参数集，导致 PC 新进程接入后一直报「尚未获得分辨率」——改为参数集随 IDR 一起缓存并前置 ② CMD_RESOLUTION 每 2s 重报却被无条件当成「变了」，DeviceSession 加去重（解码器层早退已挡住重建，去重是为语义正确与日志降噪）③ MfH264Decoder 相同分辨率早退已存在，不再重复重建 ④ 新增 --snapshot-delay 与 --auto 会话日志输出，避免快照拍在黑屏上误判",
+      "basis": "探针 peakFps=62 / activeFps=46.5 / p99=52ms / 0 解码错误 / 延迟 11.4ms；暂停 2.5s 恢复首帧 102ms；WPF 窗口首次人工验收上屏（presented=100、解码 0 错误、写位图 3ms、延迟 51ms）"
+    },
+    {
+      "version": "1.6.0",
+      "date": "2026-11-08",
+      "change": "「停止会话」改为「停止投屏（只暂停，保留采集）」：SessionService 新增 pauseStream/resumeStream，页面改三态；顺带修三个真 bug —— ① NAPI int64→double（getStats 一直返回全 0）② native 统计改走 @State（UI 永不刷新）③ PC 端新增待初始化帧挂起队列；另把重放的参数集拆成独立帧先发、追加重放窗口拉到 2.5s",
+      "basis": "真机验证：暂停后 native 采集继续（帧 628→689）、包数冻结 5058；继续后无授权弹窗、包数恢复增长、重放次数 6→12；首次上屏 presentFps 55~62 / 0 解码错误"
+    },
+    {
+      "version": "1.7.0",
+      "date": "2026-11-08",
+      "change": "平板端会话页 UI 重构：卡片式控制台（返回 + 品牌/状态胶囊 → 主控卡 → 2×2 指标卡 → 会话信息标签 → 可折叠日志），字号与间距按 1600×2560 平板重排；指标改读新增的 SessionService.captureMetrics() 结构化数据（不再解析拼接串）；状态按 native capState 区分「等待 PC / 投屏中 / 已暂停」，未握手时指标区显示「采集尚未启动」；暂停时直发徽章与码率标签语义修正（编码码率 ≠ 发送码率）",
+      "basis": "真机四态截图：空态 / 等待握手 / 运行（59.9fps · 386 帧 · 19983kbps · Native 直发 · 状态 0）/ 已暂停（黄点 + 绿色继续按钮）；返回按钮回 GATE-01 页正常；HAP 33 任务构建通过、ArkTS WARN 仍 7 条（无新增）"
+    },
+    {
+      "version": "1.8.0",
+      "date": "2026-11-08",
+      "change": "PC 端界面重构（纯呈现层）：左侧栏（品牌 / 设备输入与列表 / 推流 / 导航三键 / 锁屏）+ 右侧（设备标题 + 状态胶囊 + 分辨率 + 画面 + 五枚指标磁贴 + 细节行），替换原「顶部一排默认按钮 + 顶部 TabControl + 一行 200 字日志式状态」。新增 Ui/Theme.cs（深色配色）与 Ui/Controls.cs（FlatButton/StatTile/StatusPill 自绘控件）。原生 TabControl 换为设备列表 + 画面叠放（Visibility 切换），仍只切呈现不拆流。窗口尺寸改为按 SystemParameters.WorkArea 收敛。",
+      "basis": "真机验收：--auto 自动连接后窗口快照 pc_ui_final.png 显示实时镜像画面；metrics 记录 presented=65 / packets=3893 / 延迟 65.5ms / 0 解码错误 / 0 视频丢包。编译 0 警告。协议、传输、解码、注入逻辑均未改动。"
+    },
+    {
+      "version": "1.9.0",
+      "date": "2026-11-08",
+      "change": "PC 端画面占比改造（纯呈现层）：指标磁贴由「占一行布局的 5 枚磁贴」改为浮在画面右下角的 HUD（MiniStat，单行 22 DIP），画面区多出约 70 DIP 高度；左侧栏可折叠（标题条左侧 ‹/›），推流开始后自动收起；新增「⤢ 贴合画面」按设备宽高比收放窗口（保持普通窗口、不最大化），并用真实布局尺寸两次收敛消除黑边；「⛶ 全屏」改为只隐藏窗口内边栏/状态条、不改 WindowState（原实现会最大化窗口，已被用户否掉）；内容边距 18/16 → 10/8。 贴合算法最终为「量一次 chrome（ActualWidth - _stage.ActualWidth），一次算准」；早期迭代版本读到的 ActualWidth 是上一轮布局的旧值，会永远收敛不了。另修 MinWidth=900 把贴合后的窄窗口顶回宽窗口（黑边根因之一）。",
+      "basis": "真机验收 tmp/pc_fit_v2.png（884×1313）：画面宽占窗口 97%、高占约 91%，平板界面完整无裁切；HUD 显示 帧率/延迟/帧数/丢包/解码错误；底部两行完整不被裁切；metrics presented=65 / latency 45.3ms / videoLost 1。编译 0 警告。协议、传输、解码、注入均未改动。"
+    },
+    {
+      "version": "1.9.1",
+      "date": "2026-11-08",
+      "change": "修「PC 一直显示等待设备画面」：RtoEstimator 在无 RTT 样本时回退 Hwp.ControlRtoMs=20ms，而平板在 IDLE 态不发心跳、PC 拿不到样本，4 次重传总共 80ms 短于本机 Wi-Fi 平均 RTT 82ms，CMD_STREAM 必然失败。拆出 ControlRtoInitMs=200 作无样本兜底，有样本后仍按 srtt+4*rttvar 自适应并钳位 [20,200]。",
+      "basis": "修复前日志 [device-1] 握手 失败 RTO=20ms + 平板 videPackets 恒 0；修复后 tmp/verify.log 握手 成功 RTO=180ms，tmp/verify.jsonl presented=65 / latency 37.8ms / dec 错误 0，tmp/verify.png 状态胶囊「投屏中」、平板日志「PC 重新接入：已补发分辨率 + 重放缓存关键帧」。PC 编译 0 警告 0 错误。"
+    },
+    {
+      "version": "1.9.2",
+      "date": "2026-11-08",
+      "change": "窗口缩放锁设备比例（用户明确要求「缩放完全跟随设备的屏幕比例」）：新增 WM_SIZING 钩子实时修正拖动矩形，四边/角按设备比例联动，最小尺寸整体缩放而非单维钳位；保留 SizeChanged 420ms 防抖贴合作为兜底（且仅在此前贴合过之后启用，避免启动期抢在侧栏收起前贴成 1057×1352 再跳回 799×1352）。钩子内不设 handled，避免吞掉 DefWindowProc 导致窗口完全无法缩放。",
+      "basis": "实测 tmp/final.log 只有一条 [fit] window=799x1352 stage=1242x725 chrome=38x135 aspect=0.625（启动不再跳变）；WM_SIZING 消息级验证 5 个拖动方向（右/底/右下/左/顶），钩子改写后 RECT 的比例与基准差均 ≤0.0004；SetWindowPos 强设 961×1051 后 1.5s 回到 799×1352；tmp/win_print.png（PrintWindow 绕过全屏游戏遮挡）画面铺满无侧边黑边、状态「投屏中」、presented=587、延迟 32ms、解码错误 0。PC 编译 0 警告 0 错误。"
+    },
+    {
+      "version": "1.9.3",
+      "date": "2026-11-08",
+      "change": "① 修「窗口缩放后弹回原大小」：SizeChanged 防抖兜底从 FitWindowToDevice() 改为 CorrectAspectIfNeeded()（只纠正比例、保留用户尺寸），并对 ResolutionChanged 去重（ResolutionBeacon 周期重报不再重新贴合）。② 区分「画面静止」与断流/息屏：加带迟滞的低帧率积分（<6fps 加分、≥6 减分，累计 6 分约 3s 判静止、约 2s 退出），静止时状态胶囊显示「画面静止」、HUD 帧率位显示「静止」并去掉 fps 单位；MiniStat 新增 SetUnit() 以便清空单位。",
+      "basis": "缩放：等比缩到 70% 后 559x946 稳定不弹回（旧版 1.4s 内被贴回 799x1352）；故意加宽 120px 后宽度被纠正、高度保留；启动 [fit] 3 次→1 次。静止：屏亮静止 8s presented 不动、presentFps 0.0；设备侧连续滑动实测 28/31/35/36/37fps、延迟 9.8~28ms、丢包 0、丢帧 0；静止态胶囊「画面静止」(灰)、运动态「投屏中」(绿)；HUD 静止「帧率 静止」、运动「帧率 28 fps」。PC 编译 0 警告 0 错误。证据 tmp/fix.log、tmp/fix_top.png、tmp/fix_hud.png、tmp/motion_top2.png、tmp/motion_bottom2.png、tmp/verify2.jsonl"
+    },
+    {
+      "version": "1.10.0",
+      "date": "2026-11-08",
+      "change": "根治「PC 重连首帧 2.4~13s」：根因是 MF 的 CMSH264DecoderMFT 需要内容不同的连续帧才出图，而设备重连只重放同一个缓存 IDR（重复帧 → 一帧不吐且 error=0）。在设备编码器 configure 阶段开启 OH_MD_KEY_VIDEO_ENCODER_REPEAT_PREVIOUS_FRAME_AFTER=33 / MAX_COUNT=-1，无新帧时重复编码上一帧；同时 PC 侧补齐 IDR 门闩、参数集缓存与裸 IDR 挂起回放、纯参数集帧不喂 MFT。副作用：静止画面从 0fps 变为 30~33fps，编码码率约 10~11Mbps。",
+      "basis": "mfde 离线对比：真实连续帧 8 帧出图，同一帧重复 3/5/8 次与单帧 118KB 均 0 帧 0 错误 → 锁定为「重复帧」而非码流/参数集问题（码流经 NAL 解析验证合法：IDR=NAL5、参数集=SPS7+PPS8）。修复后重连首帧 3 次实测均 2.0s；静止画面 PC 30~33fps、平板自报 31~33fps、10894~10994kbps、发送失败 0；tmp/rpt_shot.png 画面铺满无黑边、状态「投屏中」、HUD 帧率 31 / 延迟 8ms / 解码错误 0 / 重传 0。HAP 33 tasks 成功、PC 0 警告 0 错误。"
+    },
+    {
+      "version": "1.11.0",
+      "date": "2026-11-08",
+      "change": "追查「录屏授权弹窗每次都要点」：穷举权限通道后确认平板不可永久免除，改为把重弹压缩到进程级 —— SessionService 单例化 + start() 幂等 + 页面退出只 pauseStream，另声明 CUSTOM_SCREEN_CAPTURE 消除权限申请框的重复弹窗，并新增「结束投屏（释放采集）」作为唯一全量释放入口。",
+      "basis": "真机实测：① 冷启动杀掉进程重启，权限框不再弹（s3）；② 启动实时投屏仍弹 AVScreenCapture 隐私框（s9，说明权限与隐私确认是两道门槛）；③ 点允许后 50.9fps/16987kbps/385 帧/0 错误（s10）；④ 返回主页再进会话页零弹窗、显示「会话常驻中（采集授权仍有效）」、累积帧 1573（s12）；⑤ 点继续投屏日志「实时码流恢复（采集未中断，无需重新授权）」、30.0fps/9992kbps（s13）。权限侧依据：SDK PermissionDefinitions.json 全表扫描。"
+    },
+    {
+      "version": "1.12.0",
+      "date": "2026-11-08",
+      "change": "GATE-06 判 FAIL/阻塞：无障碍入口在本机 ROM 不存在，uitest 持久 socket 不可用，hdc 通道 200ms 是热态下限、冷态 2s。同时修掉 uinput 命令形态错误（-K -k → -K -d/-u），并给 PC 侧注入器加 DirectHdc 传输 + 自动 tconn 重连。",
+      "basis": "真机实测：无障碍基线 8/8 errCode=-2（tmp/gate06_baseline.json）；hdc 直连 p50 544ms/p95 682ms（tmp/gate06hdc.json）；设置页逐屏取证无「扩展服务」（tmp/gg.jpeg、tmp/gh.jpeg）；extensionAbility visible:true 重装后入口依旧不存在；uitest start-daemon 可起但 8012 无监听、fport 立即 RST；uitest uiInput 与 uinput 同量级（603~803ms）。"
+    },
+    {
+      "version": "1.13.0",
+      "date": "2026-11-08",
+      "change": "GATE-06 由 FAIL 翻转为 PASS：找到并打通 uitest 持久 socket RPC 通道（抽象 unix socket @uitest_socket + hdc fport localabstract）。单点 p50 74.97ms / p95 90.42ms。同时订正此前「本 ROM 不提供该通道」的错误结论（token 用错 + 漏了 agent.so 前置 + 误按 TCP 8012 找）。",
+      "basis": "真机实测 tmp/gate06rpc.json（20 次点击 0 失败，pressBack/pressHome 各 3 次）；协议来自 DevEco 自带 hosScrcpy-1.0.20-beta.jar 的 api/b.class 常量池 + agent.so 符号表 + 抓包格式三方印证；点击生效有截图取证（tmp/v1.jpeg 从主页跳到网络探针页，tmp/v2.jpeg pressBack 退回主页）。"
+    },
+    {
+      "version": "1.14.0",
+      "date": "2026-11-08",
+      "change": "方案 B（应用进程直连 @uitest_socket，不依赖 hdc）判死：SELinux 跨域拒绝（EACCES 13）。新增 native 探针 probeUitestSocket 作为常驻回归入口。",
+      "basis": "真机实测：应用进程域 o:r:debug_hap:s0:... / agent 域 u:r:uitest:s0；probeUitestSocket 返回 {\"connectOk\":false,\"connectErrno\":13,\"peerUid\":-1}（tmp/p4.jpeg 界面取证、hilog 同步）。agent.so 符号表 700 条动态符号、548 条已定义，无 UID 白名单分支。"
+    },
+    {
+      "version": "1.15.0",
+      "date": "2026-11-09",
+      "change": "NEXT-08 落地：画面点击转发接进 PC UI（letterbox 精确映射 + 260ms 双击窗口仲裁 + 拖动忽略 + 80ms 节流 + 握手后后台预热）。热态注入 93ms。",
+      "basis": "真机实测 tmp/taptest.txt / taptest3.txt：0.8,0.5 → dev(1279,1280) 点击生效（tmp/t6.jpeg 桌面→应用前台）；预热后 injectMs 93ms，预热前 1223/2940ms。"
+    },
+    {
+      "version": "1.16.0",
+      "date": "2026-11-09",
+      "change": "NEXT-09 完成：agent.so 随 PC 端分发（csproj Content），建链时按 md5 自动推送 + chmod + 回读校验；并修正启动顺序（先 so 后 daemon，so 变更才重启 daemon），消除「空壳 daemon」导致的 RPC 全失败。",
+      "basis": "真机三段：tmp/navtest3.txt（旧顺序 → rpc ok=False，暴露空壳问题）、tmp/navtest4.txt（全新/空壳场景自愈，ok=True）、tmp/navtest5.txt（热态「已就位」不重复推送，128ms）。/data/local/tmp 实测 0771 shell:shell，证明应用侧无法自行推送。"
+    },
+    {
+      "version": "1.16.1",
+      "date": "2026-11-08",
+      "change": "记录用户决策：静止码率不放宽（不改 REPEAT_PREVIOUS_FRAME_AFTER、不切 VBR）。",
+      "basis": "用户 2026-11-08 23:56 明确回答「不要放宽」。"
+    },
+    {
+      "version": "1.17.0",
+      "date": "2026-11-09",
+      "change": "会话页/首页文案整改（清除面向开发者的门禁编号与内部术语，统一状态词）；7 条 ArkTS WARN 全量定性并记录为「不可消除」，不再作为待办。",
+      "basis": "真机截图 tmp/ui3.jpeg（会话页）、tmp/ui4.jpeg（首页）；SDK d.ts 全量核对 —— AccessibilityExtensionContext 全方法 deprecated 且无 useinstead；syscap 告警官方消除法是移除 deviceTypes，与本项目目标设备冲突；CONTROL_DEVICE 属 2in1 白名单，平板不可得。"
+    },
+    {
+      "version": "1.17.1",
+      "date": "2026-11-09",
+      "change": "无障碍注入通道平台级判死：AccessibilityManagerService client num=0，本机 ROM 无扩展服务入口。NEXT-07 由「待复测」改判「平台不支持，无法验证」。",
+      "basis": "真机取证：hidumper -s AccessibilityManagerService -a '-c' → client num: 0；-u → accessible:0/gesture:0；bm dump 显示 LowFreqAccessibility 登记正常(type:4/visible:true)。与 2026-11-07 能力清单 §2 结论一致。"
+    },
+    {
+      "version": "1.18.0",
+      "date": "2026-11-09",
+      "change": "NEXT-04 剪贴板上行打通：设备端接入官方安全控件 PasteButton（点即授权、免 READ_PASTEBOARD 权限），新增 SessionService.pushClipText 返回是否需要发上行（防回环语义化）。端到端真机验证通过。",
+      "basis": "真机（平板 MLR-AL00）：设备日志 剪贴板文本 → PC (38 字符, hash=39820025)；指标 下行0·上行1；PC 剪贴板实际读出 [TABLET9K2XLOCALHARMLINK-CLIP-TEST-2026] 长度 38 完全一致。权限表复核：READ_PASTEBOARD 为 user_grant+system_basic 且 deviceTypes 含 tablet（旧结论「平板不可达」有误）。"
+    },
+    {
+      "version": "1.19.0",
+      "date": "2026-11-09",
+      "change": "【手感专项】输入交互改为原生级：单击零延迟（去掉 260ms 双击窗口）、拖动实时流式转发（touchDown/Move*n/touchUp）、新增滚轮转发（AxisDown/AxisUp）。实测 touchMove p50 8.4~9.6ms、30 步拖动 365ms。修复 target 缺端口、fport 残留规则、daemon 判活方式三个连接层 bug。",
+      "basis": "真机（平板 MLR-AL00）：拖动在设置页实测生效（tmp/s2_before.jpeg → s2_after_drag.jpeg 右侧详情确实上滚）；GATE-06 复测 p50 57.13ms / p95 72.71ms / 0 失败；touchMove p50 8.4~9.6ms / p95 13.5~20ms，30 步 365ms。"
+    },
+    {
+      "version": "1.20.0",
+      "date": "2026-11-09",
+      "change": "PC 端改为单文件发布：920KB HarmOsWin.exe 放项目根目录（agent.so 以 EmbeddedResource 嵌入，运行时释放到 %LOCALAPPDATA%）；新增 harmoswin.json 配置实现双击即连。",
+      "basis": "真机三段：单文件直接运行 rpcReady=True；删设备端 so 后 agent=已推送并校验通过（证明嵌入资源释放链路）；无参数双击按配置自动握手，平板 34.0fps / 323 帧 / 0 失败。"
+    },
+    {
+      "version": "1.21.0",
+      "date": "2026-11-09",
+      "change": "修复重复连接致命缺陷：Add 按 host:port 去重、Dispatch 按 host+port 精确匹配、AddDevice 命中已有会话则切换。新增 --dup-test 自测开关。",
+      "basis": "用户实测暴露（device-1/2/3 同 IP → 只有一张静止图 + 设备端重放 IDR 392 次）；修复后 --dup-test 三次连接会话数恒为 1；端到端复测 PC 正常显示平板桌面（30fps / 延迟 6ms / 丢包 0 / 解码错误 0）。"
+    },
+    {
+      "version": "1.22.0",
+      "date": "2026-11-09",
+      "change": "【重大】读 HOScrcpy-python 源码并真机实测，确认存在「免录屏授权」的采集路径（uitest 扩展加载 libscreen_casting.z.so + gRPC 收流），全程无授权弹窗。同时纠正归档里「hdc 与 Wi-Fi 冲突」的错误排除理由（hdc 可走无线，本项目注入通道即为证）。",
+      "basis": "源码：hos_scrcpy/bridge/native_stream.py（gRPC onStart 收裸 H.264；全项目无 AVScreenCapture/授权字样）；so 字符串表含 NativeStartScreenCopy / UiTestExtension_OnInit / libdm.z.so；真机：起扩展守护进程 → @scrcpy_grpc_socket 出现 → gRPC 首块 31B/307ms 头部 0000000167640034（有效 H.264），8 秒 38 块/160795B，截图确认无授权弹窗。"
+    },
+    {
+      "version": "1.23.0",
+      "date": "2026-11-09",
+      "change": "【参考方案性能实测完成】发现 `-frameRate` 是无效参数（真参数为 `-frameRefreshInterval`）；参考方案实测达 **1600×2560 @ 89.5fps / 14.88Mbps**，完全满足甚至超过原始性能目标，且无授权弹窗。同时记录 6 条实测踩坑（so 版本敏感、hdc 会话互踢、必须有动态画面等）。",
+      "basis": "设备端日志 [rpc_server.cpp:(parse_params)] 列出真实参数集（无 frameRate）；30s 长测 2685 帧 / 89.5fps / 14.88Mbps / 1600×2560；NAL 解析确认无 B 帧、scale=1 为原生分辨率；对照实验证明 -frameRate 30/60 均只跑出 ~45fps。"
+    },
+    {
+      "version": "1.24.0",
+      "date": "2026-11-10",
+      "change": "【PC 端解码链路修复 + 呈现参数定标】① 修掉画面右/底缘纯绿边：根因是 H.264 16px 宏块对齐填充（-scale 3 内容 534×854 补零到 544×864，补零区 Y=U=V=0 经 BT.601 limited 解出 RGB(0,154,0)）；修复为输出锁定时按内容尺寸裁剪。⚠️ Nv12ToBgra 的 UV 平面偏移必须用缓冲高度 bufH 而非裁剪高度 h，否则色度整幅错位且不报错。② -scale 三档真机定标，默认 3→2（800×1280）：解码 5.9ms 最低、滑动 708 帧零丢帧；scale1 解码 18.1ms 排队丢 73 帧。③ 窗口贴合倍数新增 --winscale（默认 2/3）。④ 证伪「红字偏粉紫是管线缺陷」——平板原生截图与投屏画面几乎一致，系 App 自身配色，不得为此改色彩公式。⑤ 首帧耗时已拆解（等首帧 ~10.2s 为最大项，尚未优化）。",
+      "basis": "真机 A/B + 离线仿真。绿边：metrics crop=31|544x864 且快照右缘全纯白无绿线。档位：三档静态度量 + 滑动对照（内容相关度 0.999）。偏色：平板原生截图 (186,96,147) vs 投屏 (206,94,143)，同机股票 App 红字 (233,79,77)；JPEG 4:2:0 最多致 B-G +10。编译 0 warning / 0 error，exe md5 977087c8461aaff328202e47a9bc2922。"
+    }
+  ]
+}
