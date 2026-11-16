@@ -1,7 +1,7 @@
 {
   "schema": "index/v1",
   "project": "HarmOs-Win",
-  "updated_at": "2026-11-11T00:05:00+08:00",
+  "updated_at": "2026-11-16T21:48:00+08:00",
   "usage": "Search entries[].keys (Chinese or English), then open entries[].path and look for entries[].symbol",
   "entries": [
     {
@@ -17,7 +17,7 @@
       ],
       "path": "AGENTS.json",
       "symbol": "invariants / decisions / verification_gates",
-      "summary": "工程契约：13 条硬性约束、8 条决策（DEC-08 已结案）、7 个验证门（GATE-06 基线通过待复测）"
+      "summary": "工程契约（v1.25.2）：13 条硬性约束、8 条决策、**8 个验证门**（GATE-02/L0/06 已达标或通过；GATE-03/05 由 DEC-08 判死结案；GATE-01/04 部分通过）。NEXT-07 无障碍通道永久销项（鸿蒙 7 平台无此能力）、NEXT-06 折展验证取消、NEXT-01A 关闭，pending 已 0 条未结项"
     },
     {
       "id": "doc-index",
@@ -587,7 +587,7 @@
       ],
       "path": "AGENTS.json",
       "symbol": "facts.measured.control_device_permission / decisions DEC-08 / verification_gates.GATE-05",
-      "summary": "DEC-08 部分结案：原生注入 801、权限 -1、ACL 不适用；仅剩无障碍手势注入候选"
+      "summary": "DEC-08 结案：原生注入 801、权限 -1、ACL 均不可行；**无障碍手势注入候选亦已判死**（鸿蒙 7 无扩展服务入口），最终落地通道为 uitest RPC（hdc fport 持久 socket）"
     },
     {
       "id": "evidence-gate05",
@@ -650,7 +650,7 @@
       ],
       "path": "tablet/entry/src/main/ets/accessibility/LowFreqBridge.ets",
       "symbol": "LowFreqBridge.start / send / BRIDGE_TIMEOUT_MS",
-      "summary": "主 HAP 与无障碍扩展服务间的 loopback UDP 桥；服务未开启时 250ms 超时回传 -2"
+      "summary": "主 HAP 与无障碍扩展服务间的 loopback UDP 桥；服务未开启时 250ms 超时回传 -2。**⚠ 平台已判死：鸿蒙 7 无「扩展服务」入口，此桥永久作废，代码仅作跨 ROM 保底死代码，不参与验证**"
     },
     {
       "id": "accessibility-extability",
@@ -663,7 +663,7 @@
       ],
       "path": "tablet/entry/src/main/ets/accessibility/AccessibilityExtAbility.ets",
       "symbol": "LowFreqAccessibility.onConnect / runAction / reply",
-      "summary": "执行三键(root.performAction)与单点(injectGestureSync)，结果 19B 发回 9022"
+      "summary": "执行三键(root.performAction)与单点(injectGestureSync)，结果 19B 发回 9022。**⚠ 永久作废：鸿蒙 7 系统不存在无障碍扩展服务（`hidumper ... -c` → client num: 0），实际注入走 uitest RPC；本文件仅作跨 ROM 保底保留**"
     },
     {
       "id": "probe-gate06",
@@ -1533,7 +1533,7 @@
       ],
       "path": "docs/参考项目-能力清单.md",
       "symbol": "hos_scrcpy/bridge/native_stream.py（HosVideoStream.start）",
-      "summary": "存在免录屏授权的采集路径：libscrcpy_server*.z.so 推到设备固定名 libscreen_casting.z.so，由 uitest 扩展守护进程加载（内部 NativeStartScreenCopy，非公开 AVScreenCapture），经 hdc fport → localabstract:scrcpy_grpc_socket → gRPC onStart 服务端流取裸 H.264。我方真机验证：首块 31B/307ms 头部 0000000167640034（有效 H.264），8 秒 38 块/160795B，无授权弹窗。同时纠正归档错误：hdc 可走无线，「与 Wi-Fi 冲突」不成立。切换与否待用户决策（DEC-09）。"
+      "summary": "存在免录屏授权的采集路径：libscrcpy_server*.z.so 推到设备固定名 libscreen_casting.z.so，由 uitest 扩展守护进程加载（内部 NativeStartScreenCopy，非公开 AVScreenCapture），经 hdc fport → localabstract:scrcpy_grpc_socket → gRPC onStart 服务端流取裸 H.264。我方真机验证：首块 31B/307ms 头部 0000000167640034（有效 H.264），8 秒 38 块/160795B，无授权弹窗。同时纠正归档错误：hdc 可走无线，「与 Wi-Fi 冲突」不成立。DEC-09 已于 2026-11-12 收口为「C 双路并存」：gRPC 扩展路径为**默认**，`--capture hap` 才走 AVScreenCapture 回退。"
     },
     {
       "id": "hoscrcpy-benchmark",
