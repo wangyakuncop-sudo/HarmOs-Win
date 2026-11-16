@@ -13,7 +13,12 @@ namespace HarmOsWin.Probe;
 ///       → CMD_INJECT_RESULT(0x80) 回传 PC。
 ///
 /// 用法: HarmOsWin.Probe gate06 [deviceHost] [clickCount] [outPath]
-/// 前置：平板启动统一会话，且已在「设置 → 辅助功能 → 扩展服务 → 已安装的服务」开启 HarmLink 低频操作。
+/// ⚠ 2026-11-16 更正（原「前置」已作废）：这条 HWP + LowFreqBridge 链路**在鸿蒙 7 上必然超时**——
+/// 系统不存在「无障碍扩展服务」，Service 无法被开启（用户 21:28 最终确认；取证
+/// `hidumper -s AccessibilityManagerService -a '-c'` → `client num: 0`）。
+/// 因此本探针只能跑出 errCode=-2 的基线（见 tmp/gate06_baseline.json，8/8 -2），
+/// **不能作为注入能力判据**；INV-13 的达标证据改由 uitest RPC 档承担（p95 90.42ms）。
+/// 不要再让用户去「设置 → 辅助功能 → 扩展服务」找开关，那个菜单不存在。
 /// </summary>
 public static class Gate06
 {

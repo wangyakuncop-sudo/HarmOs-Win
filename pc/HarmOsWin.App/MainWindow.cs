@@ -4867,10 +4867,14 @@ public sealed class MainWindow : Window
             return;
         }
         btn?.Flash(Theme.Danger, 480);
-        // errCode = -2 是设备端 LowFreqBridge 的「本地无障碍服务没响应」约定值
+        // errCode = -2 是设备端 LowFreqBridge 的「250ms 内无响应」约定值
         // （见 tablet/.../LowFreqBridge.ets send() 的超时分支）。
+        // 2026-11-16 更正：这条主路依赖的「无障碍扩展服务」在鸿蒙 7 上**根本不存在**
+        // （用户 21:28 最终确认；取证 hidumper -s AccessibilityManagerService -a '-c' → client num: 0），
+        // 所以 -2 不是「用户忘了开服务」，而是**必然超时**。只能提示去掉 --nav hwp 走直连注入，
+        // 不要再把用户引向「设置 → 辅助功能 → 扩展服务」这个不存在的菜单。
         string why = r.ErrCode == -2
-            ? "设备无障碍服务未开启：设置 → 辅助功能 → 扩展服务 →「HarmLink 低频操作」"
+            ? "注入主路无回执（鸿蒙 7 无无障碍扩展服务）：去掉 --nav hwp 即走直连注入"
             : $"设备拒绝执行（code={r.ErrCode}）";
         SetStatus($"[三键] {name} 失败：{why}");
         NavHint($"三键未生效：{why}");

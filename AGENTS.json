@@ -1,10 +1,10 @@
 {
   "doc": {
     "id": "AGENTS_HARMOS_WIN",
-    "version": "1.25.2",
+    "version": "1.26.0",
     "format": "json",
     "purpose": "machine-readable engineering contract for AI agents modifying HarmOs-Win (HarmonyOS screen mirroring to Windows)",
-    "last_verified": "2026-11-16T21:30:00+08:00",
+    "last_verified": "2026-11-16T21:52:00+08:00",
     "architecture_doc": "docs/架构-HarmOs-Win.md（架构单一事实源，改分层/协议/模块必须同步）",
     "language": "zh-CN",
     "priority": "source code > this file; if conflict, fix this file immediately",
@@ -900,6 +900,12 @@
       "date": "2026-11-16",
       "change": "【NEXT-01A 关闭 + 勘误】用户 21:41 就「NEXT-01A 那条虚挂的（2in1 白名单已判死，建议一并关）」答复「关闭」。处置：`PROGRESS.json` NEXT-01A 由 `done` 改 `closed`，`blocker` 置 `null`，result 补记用户确认与「A3 无需再构建」。**勘误**：该条一直是 `done`（result 已写「A3 已实测排除…应用层无可达路径」），并非无 status；真正的问题是 `blocker` 字段残留过期话术「等用户授权构建：A3 需改 module.json5 后重新编译装机」，会让后续会话误判为未开工——**此为「status=done/closed 但 blocker 未清空」的反面教材，新增条目录入 blocker 时，结案必须同时清空**。至此 `pending_actions` 19 条全部 done/closed，0 未结项。",
       "basis": "用户 2026-11-16 21:41 原话：「关闭」（引用 NEXT-01A 建议关闭条目）；A3 判死依据为 2in1 白名单 + `reqPermissionStates=-1` 实测。"
+    },
+    {
+      "version": "1.26.0",
+      "date": "2026-11-16",
+      "change": "【发布：HWP 主路失败提示文案更正 + 新基准】用户 21:49 就「要不要改 MainWindow.cs:4873 那句指向不存在菜单的提示」答复「改」，21:50 答复「编译」，21:51 答复「发布」。两处改动（**纯文案/注释，无逻辑变更**）：① `pc/HarmOsWin.App/MainWindow.cs` errCode=-2 分支不再输出「设备无障碍服务未开启：设置 → 辅助功能 → 扩展服务 →「HarmLink 低频操作」」（鸿蒙 7 无此菜单，等于指引用户去做一件平台不允许的事），改为「注入主路无回执（鸿蒙 7 无无障碍扩展服务）：去掉 --nav hwp 即走直连注入」；该分支仅在显式传 `--nav hwp` 时可达（`_navUseHwpMain` 默认 false），原文案属藏在逃生口里的错误指引。② `pc/HarmOsWin.Probe/Gate06.cs` 前置说明作废同一过期前置，改写明该链路在鸿蒙 7 上必然超时、只能跑出 `errCode=-2` 基线，达标证据由 uitest RPC 档承担。**新基准**：`HarmOsWin.exe` md5 `f702a7e6176577e881b7e77b4e115ec5`（1,662,494 B），归档 `releases/HarmOsWin_hwp-hint-fix_20261116.exe`（同 md5）；上一版 `releases/HarmOsWin_P0-hint-20261116.exe`（`8d400570…`）保留作回退点，**本轮起有两个回退点**。**桥 5 文件随本轮重新构建、md5 全变**（exe `2e9c5d98…` / dll `d9d89943…` / deps.json `c21e4be6…` / runtimeconfig.json `25333399…` / pdb `a3e00dc4…`），根目录已一并覆盖——**分发/回退时 exe 与桥 5 文件必须成套，勿只换 exe**。assets 两个 so 未动，配置 `0c503afd…` 未动。验证：`dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true` 0 警告 0 错误；静态校验新 exe 内 UTF-16LE 检出「注入主路无回执」「去掉 --nav hwp 即走直连注入」，旧串「无障碍扩展服务未开启」已不存在；validate_memory.ps1 21 项 0 警告。**未启动 App、未连设备**，`--nav hwp` 路径的真实弹窗仍未目视验收。",
+      "basis": "用户 2026-11-16 21:49「改」/ 21:50「编译」/ 21:51「发布」三轮当次授权；改动依据为 `facts.accessibility_service_no_entry_on_rom`（鸿蒙 7 无无障碍扩展服务、`AccessibilityExtensionContext` 自 API 12 全量 deprecated）。"
     }
   ]
 }
