@@ -1,15 +1,15 @@
 {
   "doc": {
     "id": "AGENTS_HARMOS_WIN",
-    "version": "1.24.0",
+    "version": "1.25.1",
     "format": "json",
     "purpose": "machine-readable engineering contract for AI agents modifying HarmOs-Win (HarmonyOS screen mirroring to Windows)",
-    "last_verified": "2026-11-10T20:06:00+08:00",
+    "last_verified": "2026-11-16T21:30:00+08:00",
     "architecture_doc": "docs/架构-HarmOs-Win.md（架构单一事实源，改分层/协议/模块必须同步）",
     "language": "zh-CN",
     "priority": "source code > this file; if conflict, fix this file immediately",
     "progress_file": "PROGRESS.json (session resume state; read after this file)",
-    "last_updated": "2026-11-10"
+    "last_updated": "2026-11-16"
   },
   "protocol": {
     "index_file": "INDEX.json",
@@ -408,8 +408,8 @@
       "date": "2026-11-09"
     },
     "accessibility_service_no_entry_on_rom": {
-      "value": "无障碍（辅助功能）注入通道在本机 ROM **平台级不可用**，2026-11-09 完成系统级取证，比 2026-11-07 的「设置里找不到入口」这一观察更硬：\n1) 本机设置菜单叫「**关怀和无障碍**」（不是「辅助功能」），搜「无障碍」只返回一条「无障碍快捷键」，**没有「扩展服务 / 已安装的服务」列表**。\n2) **决定性证据**：`hidumper -s AccessibilityManagerService -a '-c'` 返回 **`client num: 0`** —— 系统无障碍服务里一个客户端都没注册。`-u` 显示 `accessible: 0` / `gesture: 0`；`-w` 显示 connected window 为空。\n3) 对照：应用侧登记**完全正常** —— `bm dump -n com.harmos.mirror` 里 LowFreqAccessibility `type: 4`(accessibility)、`visible: true`、`process: com.harmos.mirror:accessibility`。**问题在平台不提供挂载入口，不在应用声明。**\n4) 这与参考项目清单 §2 早在 2026-11-07 记下的「第 4 档本机 ROM 设置里无扩展服务入口 —— 三条均排除」是同一结论；本轮把它从「菜单观察」升级为「系统服务级取证」。\n5) 叠加 API 层面：整套 `AccessibilityExtensionContext` 自 API 12 起**全部方法** deprecated 且**无 useinstead**。即使换台有入口的 ROM，这条路也是被平台废弃的方向。\n**结论：注入只保留 uitest RPC 一档（PC 侧经 hdc fport）。不要再去找那个不存在的菜单，也不要再试应用内直连。**",
-      "impact": "NEXT-07（无障碍低频注入）由「待用户开服务复测」改判为「**平台不支持，无法验证**」，其验证目标已由 GATE-06 / uitest RPC 达成（p95 90.42ms < 200ms 判据）。无障碍代码保留在仓库作跨 ROM 保底，不删；其 3 条 deprecated WARN 属平台废弃产物，不可消除。",
+      "value": "无障碍（辅助功能）注入通道在本机 ROM **平台级不可用**，2026-11-09 完成系统级取证，比 2026-11-07 的「设置里找不到入口」这一观察更硬：\n1) 本机设置菜单叫「**关怀和无障碍**」（不是「辅助功能」），搜「无障碍」只返回一条「无障碍快捷键」，**没有「扩展服务 / 已安装的服务」列表**。\n2) **决定性证据**：`hidumper -s AccessibilityManagerService -a '-c'` 返回 **`client num: 0`** —— 系统无障碍服务里一个客户端都没注册。`-u` 显示 `accessible: 0` / `gesture: 0`；`-w` 显示 connected window 为空。\n3) 对照：应用侧登记**完全正常** —— `bm dump -n com.harmos.mirror` 里 LowFreqAccessibility `type: 4`(accessibility)、`visible: true`、`process: com.harmos.mirror:accessibility`。**问题在平台不提供挂载入口，不在应用声明。**\n4) 这与参考项目清单 §2 早在 2026-11-07 记下的「第 4 档本机 ROM 设置里无扩展服务入口 —— 三条均排除」是同一结论；本轮把它从「菜单观察」升级为「系统服务级取证」。\n5) 叠加 API 层面：整套 `AccessibilityExtensionContext` 自 API 12 起**全部方法** deprecated 且**无 useinstead**。即使换台有入口的 ROM，这条路也是被平台废弃的方向。\n**结论：注入只保留 uitest RPC 一档（PC 侧经 hdc fport）。不要再去找那个不存在的菜单，也不要再试应用内直连。\n6) **2026-11-16 21:28 用户本人最终确认（最高权威）：「我鸿蒙7系统没有这个东西，永久记住」。** 本项自此**永久销项**——不列为待办、不列为阻塞、不再向用户索要任何开启动作、不再出现在 resume / 待办清单里。鸿蒙 7 不是「入口藏得深」，是**根本没有这个能力**。**",
+      "impact": "NEXT-07（无障碍低频注入）由「待用户开服务复测」改判为「**平台不支持，无法验证**」，其验证目标已由 GATE-06 / uitest RPC 达成（p95 90.42ms < 200ms 判据）。无障碍代码保留在仓库作跨 ROM 保底，不删；其 3 条 deprecated WARN 属平台废弃产物，不可消除。**2026-11-16 用户最终确认后，NEXT-07 已置 closed 永久追踪终止；无障碍代码仅是跨 ROM 保底的死代码，不参与任何验证计划。**",
       "date": "2026-11-09"
     },
     "clipboard_uplink_via_pastebutton": {
@@ -882,6 +882,18 @@
       "date": "2026-11-10",
       "change": "【PC 端解码链路修复 + 呈现参数定标】① 修掉画面右/底缘纯绿边：根因是 H.264 16px 宏块对齐填充（-scale 3 内容 534×854 补零到 544×864，补零区 Y=U=V=0 经 BT.601 limited 解出 RGB(0,154,0)）；修复为输出锁定时按内容尺寸裁剪。⚠️ Nv12ToBgra 的 UV 平面偏移必须用缓冲高度 bufH 而非裁剪高度 h，否则色度整幅错位且不报错。② -scale 三档真机定标，默认 3→2（800×1280）：解码 5.9ms 最低、滑动 708 帧零丢帧；scale1 解码 18.1ms 排队丢 73 帧。③ 窗口贴合倍数新增 --winscale（默认 2/3）。④ 证伪「红字偏粉紫是管线缺陷」——平板原生截图与投屏画面几乎一致，系 App 自身配色，不得为此改色彩公式。⑤ 首帧耗时已拆解（等首帧 ~10.2s 为最大项，尚未优化）。",
       "basis": "真机 A/B + 离线仿真。绿边：metrics crop=31|544x864 且快照右缘全纯白无绿线。档位：三档静态度量 + 滑动对照（内容相关度 0.999）。偏色：平板原生截图 (186,96,147) vs 投屏 (206,94,143)，同机股票 App 红字 (233,79,77)；JPEG 4:2:0 最多致 B-G +10。编译 0 warning / 0 error，exe md5 977087c8461aaff328202e47a9bc2922。"
+    },
+    {
+      "version": "1.25.0",
+      "date": "2026-11-16",
+      "change": "【无障碍注入通道永久销项】用户本人 21:28 明确：**鸿蒙 7 系统没有「无障碍扩展服务」这个东西，要求永久记住**。此前 2026-11-09 已用 `hidumper -s AccessibilityManagerService -a '-c'` 取证 `client num: 0`，本轮由用户以最高权威确认。处置：① `facts.accessibility_service_no_entry_on_rom` 补第 6 条确认；② `PROGRESS.json` NEXT-07 由 `blocked` 改 `closed`，`blocker` 置 null；③ `risks_notes[0]` 由「当前唯一阻塞」改为「已销项」；④ `stage` / `resume.next_action` 删除「剩无障碍服务开启」「唯一阻塞」表述。**后续禁止**：让用户去「设置→辅助功能→扩展服务」找入口、把它列为阻塞或待办、以「用户未开启」解释注入不可用。",
+      "basis": "用户 2026-11-16 21:28 原话：「我鸿蒙7系统没有这个东西，永久记住」；叠加 2026-11-09 系统级取证与 `AccessibilityExtensionContext` 自 API 12 全量 deprecated。"
+    },
+    {
+      "version": "1.25.1",
+      "date": "2026-11-16",
+      "change": "【折叠屏折展验证按用户要求取消】用户 21:33 就「NEXT-06 partial（手机折叠屏折展切换未测）」答复「不需要」。处置：`PROGRESS.json` NEXT-06 由 `partial` 改 `closed`（代码已落地：`DisplayProfile` 监听 `change/foldStatusChange`、`CMD_RESOLUTION` 上报接收、`SessionManager ≤3` 台），`open_questions` 中「折叠屏切换 AVScreenCapture 会否中断」作废结案，`resume.next_action` 删除该验证项。**后续不再主动提起折叠屏未测**；若真机出现折展后比例/分辨率异常，按普通 bug 处理，不追溯本项。",
+      "basis": "用户 2026-11-16 21:33 原话：「不需要」（引用 NEXT-06 partial 条目）。"
     }
   ]
 }
