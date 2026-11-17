@@ -170,6 +170,14 @@ public sealed class MainWindow : Window
         public string? Model;
         public required string Host;
         public string? HdcTarget;
+        /// <summary>
+        /// 同一台设备的**备用地址**（2026-11-17）。手机开着随机 MAC，IP 会随 DHCP 租约漂
+        /// （实测 PC 与手机在 192.168.1.102 / 192.168.1.103 之间互换过），每次变了都要手改配置。
+        /// 这些 host 与主 host 一起构成这台设备的地址白名单：任意一个能探通就算这台设备在线；
+        /// 白名单外依旧丢弃。只写 IP（端口会变，靠在线列表 / 端口扫描解决），写 ip:port 也接受。
+        /// 白名单全失败时解析器还有「同网段 ARP 邻居 + 型号闸门」兜底，所以这里通常可以留空。
+        /// </summary>
+        public List<string> AltHosts = new();
         public bool Enabled = true;
         public string? Note;                // 未接入时的原因说明（显示在图标的 tooltip 上）
         // 采集模式："ref" = libscreen_casting 参考采集（PC 拉流，走 127.0.0.1 采集桥）；
@@ -1004,7 +1012,8 @@ public sealed class MainWindow : Window
             if (hdcLoop is not null)
             {
                 string hdcExe = @"E://DevEco Studio//sdk//default//openharmony//toolchains//hdc.exe";
-                string tgt = @"192.168.1.102:40663";
+                // 仅为排查用的自测目标，不是设备真源；设备地址见 harmoswin.json。
+                string tgt = _injector.HdcTarget ?? "192.168.1.103:40663";
                 var lines = new List<string>();
                 int n = 8;
                 for (int i = 1; i <= n; i++)
@@ -3887,8 +3896,11 @@ public sealed class MainWindow : Window
             configured = pt;
         }
         // 放后台线程：解析里全是同步的 hdc 进程调用（最坏要扫端口），不能卡住 UI 线程
+        // primary.AltHosts 是同一台设备的备用地址（手机 102/103 漂移），非空即参与白名单；
+        // primary.Model 作型号闸门，防止备用地址已被别的设备占用时串台。
         var res = await Task.Run(() => HdcTargetResolver.ResolveAsync(
-            _injector.HdcPath, _hdcTargetOverride, configured, cacheFile)).ConfigureAwait(false);
+            _injector.HdcPath, _hdcTargetOverride, configured, cacheFile,
+            alternateHosts: primary?.AltHosts, expectedModel: primary?.Model)).ConfigureAwait(false);
 
         AppLog.Block($"hdc 目标解析 → {(res.Ok ? $"{res.Target}（来源 {res.Source}）" : "失败")}",
                      res.Trace);
@@ -4058,6 +4070,7 @@ public sealed class MainWindow : Window
                     Enabled = enabled,
                     Note = Str(item, "note"),
                     Capture = Str(item, "capture") ?? "",
+                    AltHosts = StrList(item, "altHosts"),
                     LocalPort = Hwp.LocalPort + index,
                     DevicePort = Hwp.DevicePort + index
                 });
@@ -4085,7 +4098,9 @@ public sealed class MainWindow : Window
             }
         }
         AppLog.Info($"设备清单 {_devices.Count} 台：" + string.Join(" | ", _devices.Select(d =>
-            $"{d.Name} {d.HdcTarget ?? d.Host} → HWP :{d.LocalPort}/:{d.DevicePort}" +
+            $"{d.Name} {d.HdcTarget ?? d.Host}" +
+            (d.AltHosts.Count > 0 ? $"（备用 {string.Join("/", d.AltHosts)}）" : "") +
+            $" → HWP :{d.LocalPort}/:{d.DevicePort}" +
             (d.Enabled ? "" : "（已禁用）"))));
     }
 
@@ -4097,6 +4112,23 @@ public sealed class MainWindow : Window
         }
         string? s = v.GetString();
         return string.IsNullOrWhiteSpace(s) ? null : s!.Trim();
+    }
+
+    /// <summary>读字符串数组字段（目前只用于 devices[].altHosts）。缺失 / 类型不对 → 空列表。</summary>
+    private static List<string> StrList(JsonElement e, string name)
+    {
+        var list = new List<string>();
+        if (!e.TryGetProperty(name, out var v) || v.ValueKind != JsonValueKind.Array)
+        {
+            return list;
+        }
+        foreach (var item in v.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.String) continue;
+            string? s = item.GetString();
+            if (!string.IsNullOrWhiteSpace(s)) list.Add(s!.Trim());
+        }
+        return list;
     }
 
     private static string HostOf(string target)
@@ -4166,7 +4198,10 @@ public sealed class MainWindow : Window
         }
         catch
         {
-            return "192.168.1.102";   // 历史兜底值；⚠ 102 是手机无线调试地址（用户 2026-11-16 最终裁定），勿当 PC 固定 IP
+            // 兜底值：本机 WLAN 地址（2026-11-17 ipconfig 实测 = 192.168.1.102）。
+            // ⚠ 别再把它当成手机地址 —— 102/103 会随 DHCP 租约互换，设备是哪个 IP
+            // 只看启动日志的「设备型号」，见 AGENTS facts.devices.phone.wireless。
+            return "192.168.1.102";
         }
     }
 
@@ -4331,12 +4366,16 @@ public sealed class MainWindow : Window
                     string cacheFile = Path.Combine(
                         cacheDir, $"hdc-target-{HostTag(d)}.txt");
                     var r = HdcTargetResolver.Resolve(
-                        _injector.HdcPath, null, d.HdcTarget, cacheFile);
+                        _injector.HdcPath, null, d.HdcTarget, cacheFile,
+                        alternateHosts: d.AltHosts, expectedModel: d.Model);
                     // 解析失败就置空，不能拿配置值兜底：那样会带一个确定连不上的目标去建桥，
                     // 而现在更危险 —— 回落到别的设备会把两条流喂到同一个 daemon 上。
                     d.ResolvedTarget = r.Ok ? r.Target! : "";
                     if (r.Ok)
                     {
+                        // 2026-11-17：解析到备用地址时把 Host 也跟上（否则 HAP 推流会往
+                        // 配置里那个已经漂走的 IP 推），UI 地址取自 ResolvedTarget 不受影响。
+                        d.Host = HostOf(r.Target!);
                         ApplyProbedModel(d, r.Model);   // 双路同样以真机型号校正显示
                     }
                     AppLog.Info($"[设备] {d.Name} 目标解析 → " +

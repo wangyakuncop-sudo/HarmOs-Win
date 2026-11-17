@@ -1,17 +1,17 @@
 {
   "schema": "session_progress/v1",
-  "saved_at": "2026-11-16 21:52:00",
+  "saved_at": "2026-11-17 19:26:00",
   "project": {
     "name": "HarmOs-Win",
     "path": "C:/Users/W/Desktop/HarmOS/HarmOs-Win",
     "api": 26,
     "os": "OpenHarmony 7.0.0.111",
-    "stage": "阶段 20 — 双设备并行 + 切换贴合 + P0 首帧提示 + HWP 提示文案更正；功能侧已完成，剩人工验收",
-    "doc_version": "1.26.0",
+    "stage": "阶段 21 — 双设备并行 + 切换贴合 + P0 首帧提示 + 设备地址白名单（altHosts）；功能侧已完成，剩人工验收",
+    "doc_version": "1.27.0",
     "architecture_doc": "docs/架构-HarmOs-Win.md"
   },
   "resume": {
-    "next_action": "【2026-11-16 21:52 现状 · 唯一基准「P0 首帧提示 + HWP 提示文案更正」】根目录 HarmOsWin.exe md5 f702a7e6176577e881b7e77b4e115ec5（1,662,494 B），归档 releases/HarmOsWin_hwp-hint-fix_20261116.exe（同 md5）；上一版 releases/HarmOsWin_P0-hint-20261116.exe（8d400570…）保留作回退点，**本轮起有两个回退点**；配置 0c503afd…（3 份副本：根目录 / bin / releases，内容一致）；桥 5 文件随本轮重新构建、md5 已变（exe 2e9c5d98… / dll d9d89943… / deps.json c21e4be6… / runtimeconfig.json 25333399… / pdb a3e00dc4…），**根目录桥与 exe 必须配套更新，勿只换 exe**；assets 两个 so（agent.so / screen_casting.so）未动；validate_memory.ps1 21 项 0 警告。本轮只改两处文案/注释：① `MainWindow.cs` errCode=-2 的提示不再指向鸿蒙 7 上不存在的「设置→辅助功能→扩展服务」，改为「注入主路无回执（鸿蒙 7 无无障碍扩展服务）：去掉 --nav hwp 即走直连注入」；② `Gate06.cs` 前置说明作废同一过期前置。**无任何逻辑变更**，导航/注入/看门狗行为与 P0 版一致。\n\n【设备】平板 MLR-AL00 192.168.1.100:38803、手机 HOP-AL10 192.168.1.102:40663（用户 18:18 最终裁定，18:33 双路 CMD_STREAM ×2 ok=True + gRPC 握手完成，手机 ref 出画已验证）。两台 enabled=true + capture=ref。端口每次开机变，以设备屏幕为准；18:57 用户本人 4 次切换真机验收零黑框（551×911 / 623×911 Fill）。\n\n【剩余】① **无障碍通道已彻底销项**：鸿蒙 7 系统不存在「无障碍扩展服务」入口（用户 2026-11-16 21:28 最终确认「永久记住」），NEXT-07 置 closed，**不要再让用户去找那个菜单、不要再列为阻塞**。② 7 条 ArkTS WARN 是否长期接受待拍板。③ WPF 三键 / 多标签 / Q' 锁屏页人工点按、换端口后 tconn 自动恢复仍欠真机验证（折叠屏折展按用户 21:33「不需要」已作废）。④ 息屏/静止不推帧属设计使然，P0 只给提示，仍需点亮设备；看门狗判死策略与运行期 hdc 唤屏禁止改动。\n\n【维护】启动连不上四层防线勿删；清 tmp 前必做文档引用检查；clip-anchor.json 是运行期读写缓存勿删；回收站未清空，误删按 tmp 下三份清单还原。详见 .workbuddy/memory/2026-11-16.md 第十三、十四轮。",
+    "next_action": "【2026-11-17 19:26 现状 · 基准「设备地址漂移自适应」】根目录 HarmOsWin.exe md5 8a51e6ea8ef7c36671c0e7dedd07bdab（1,670,686 B），归档 releases/HarmOsWin_altHosts_20261117.exe（同 md5）；另有 hwp-hint-fix_20261116（f702a7e6…）、P0-hint-20261116（8d400570…）两个回退点，**共三个归档**；配置 2c1cf5cf…（4 份副本一致）；桥 5 文件：exe 556780b9… / dll f7b5bab9… / deps.json c21e4be6… / runtimeconfig.json 25333399… / pdb（随发布目录）；**exe 与桥必须成套**；validate_memory.ps1 待跑。\n\n🔴 **地址事实纠正（2026-11-17 实测，推翻此前多轮记录）**：`ipconfig` 实测本机 WLAN = **192.168.1.102**；`arp -a` 里 192.168.1.103 的 MAC 为 c2-73-8d-3a-a0-39（本地管理位=1，即**随机 MAC**）；`hdc list targets -v` 显示 102:40663 为 **Offline**（那是把本机当成了设备），100:38803 为 Connected。结论：**手机 = 192.168.1.103（随机 MAC 导致 IP 会漂），102 是 PC 自己，绝不能当设备目标**。此前「手机 IP 就是 102（18:18 最后强调）」是错的，配置写 102 正是手机长期连不上的根因之一。AGENTS facts 里 `devices.phone.wireless=192.168.1.103:36445` 与 `host.wlan_ip=192.168.1.102` 本来就是对的。\n\n本轮改动（**首次触及解析逻辑**）：① `harmoswin.json` 新增 `devices[].altHosts`（备用地址列表），手机 host 改回 192.168.1.103、altHosts 暂空（没有第二个确定地址可写）；② `HdcTargetResolver` 跨设备过滤由「单一 configuredIp」扩为「host + altHosts 白名单集合」，白名单外仍一律丢弃（2026-11-13 双路抢 socket 的保护不放松）；③ 端口扫描改为遍历白名单（MaxScanHosts=3）；④ 新增 `expectedModel` 型号闸门：probe 到的型号必须包含配置 model，否则 [SKIP] 换下一个候选；⑤ **同网段邻居兜底**：白名单候选全失败且有 expectedModel 时，读 `arp -a` 取同 /24 活跃邻居（排除本机 / 网关 / 已试地址，最多 2 台），逐台扫端口 + probe + 型号校验，命中则 `来源=neighbor` 并提示改配置 —— 这是随机 MAC 场景下真正免维护的路径；⑥ 双路解析成功后 `d.Host` 跟随实际 IP。验证：build 0 警告 0 错误、publish 成功、新 exe 内 UTF-16LE 检得 `altHosts` / `同网段 ARP 邻居` / `白名单全失败` / `地址已漂移`。**未启动 App、未连设备**，真机上的 IP 漂移与 neighbor 兜底仍未实测。\n\n【设备】平板 MLR-AL00 192.168.1.100:38803、手机 HOP-AL10 **192.168.1.103**（随机 MAC，IP 会漂；端口每次开机变）。⚠ **192.168.1.102 是本机 PC 的 WLAN，不是手机**——2026-11-17 ipconfig 实测，此前「手机=102」的记录作废。两台 enabled=true + capture=ref。端口每次开机变，以设备屏幕为准；18:57 用户本人 4 次切换真机验收零黑框（551×911 / 623×911 Fill）。\n\n【剩余】① **无障碍通道已彻底销项**：鸿蒙 7 系统不存在「无障碍扩展服务」入口（用户 2026-11-16 21:28 最终确认「永久记住」），NEXT-07 置 closed，**不要再让用户去找那个菜单、不要再列为阻塞**。② 7 条 ArkTS WARN 是否长期接受待拍板。③ WPF 三键 / 多标签 / Q' 锁屏页人工点按、换端口后 tconn 自动恢复仍欠真机验证（折叠屏折展按用户 21:33「不需要」已作废）。④ 息屏/静止不推帧属设计使然，P0 只给提示，仍需点亮设备；看门狗判死策略与运行期 hdc 唤屏禁止改动。\n\n【维护】启动连不上四层防线勿删；清 tmp 前必做文档引用检查；clip-anchor.json 是运行期读写缓存勿删；回收站未清空，误删按 tmp 下三份清单还原。详见 .workbuddy/memory/2026-11-16.md 第十三、十四轮。",
     "blocked_by": [
       "7 条 ArkTS WARN 待拍板"
     ]
@@ -21,11 +21,11 @@
     "code_ready": "平板：编码器 REPEAT_PREVIOUS_FRAME_AFTER=33 / MAX_COUNT=-1（configure 失败自动降级）；PC：IDR 门闩 + 参数集缓存 + 裸 IDR 挂起回放 + 纯参数集帧不喂 MFT + CorrectAspectIfNeeded + WM_SIZING 锁比例 + ControlRtoInitMs=200；平板会话单例化（SessionService.shared）+ start() 幂等 + aboutToDisappear 只 pauseStream + 「结束投屏」全量释放 + CUSTOM_SCREEN_CAPTURE 一次性授权；注入器新增 DirectHdc 传输（直连 hdc.exe + 失败自动 tconn 重连），UinputChannel 命令形态修正为 -K -d/-u；新增 UitestRpcClient（uitest 持久 socket RPC 通道，含 hdc fport localabstract 自愈重连）+ 探针 gate06rpc；新增 native 探针 probeUitestSocket（方案 B 验证，实测 EACCES 判死）；MainWindow 三键接上 uitest RPC（InjectNavAsync/EnsureRpcAsync，daemon 自启 + 失败回退 hdc）+ 自测入口 --nav-test；画面点击转发（TryMapToDevice 精确 letterbox 映射 + 260ms 双击窗口 + 拖动忽略 + 80ms 节流 + 握手后 EnsureRpcAsync 后台预热）+ 自测入口 --tap-test/--tap-out/--tap-delay；agent.so 随 PC 端分发（output/assets/agent.so）+ 首连自动 md5 校验推送（EnsureAgentAsync/EnsureDaemonAsync，先 so 后 daemon，so 变更才重启 daemon）；PC 端单文件发布（根目录 HarmOsWin.exe 920KB，agent.so 嵌入 + 运行时释放），harmoswin.json 支持双击即连",
     "installed": true,
     "device_connected": true,
-    "doc_version": "1.26.0",
+    "doc_version": "1.27.0",
     "index_entries": 105,
     "devices": {
       "tablet": "MLR-AL00 192.168.1.100:38803 在线，已装机最版 HAP",
-      "phone": "HOP-AL10（Pura X Max 典藏）192.168.1.102:40663（用户 2026-11-16 18:18 最终裁定此 IP；此前 103 为误判）。18:23 hdc 实测 Connect OK；配置已 enabled=true + capture=ref。18:33 双路重启真机验证：两台均「已连接」、CMD_STREAM 两条 ok=True、gRPC 握手完成（手机静止/息屏未推帧）"
+      "phone": "HOP-AL10（Pura X Max 典藏）**192.168.1.103**（端口动态）。2026-11-17 ipconfig/arp/hdc list targets 三项实测：本机 PC = 192.168.1.102，手机 = 192.168.1.103 且为随机 MAC，102/103 会随 DHCP 租约互换 —— 此前「手机=102（18:18 最终裁定）」作废，判真机只看启动日志的「设备型号」。地址漂移由 altHosts + 同网段 ARP 邻居兜底（型号闸门）自动处理。"
     },
     "verified": {
       "session_page_ui": "通过（2026-11-08 20:19 真机）：四态——空态（0.0fps/0 帧/暂无日志占位）、等待 PC（琥珀点「等待 PC」+ 采集尚未启动提示）、运行（59.9fps · 386 帧 · 19983kbps · Native 直发 · 状态 0）、已暂停（黄点「已暂停」+ 绿色「继续投屏」+ 发送已暂停徽章）；返回按钮回 GATE-01 正常",
@@ -674,7 +674,7 @@
   ],
   "open_questions": [
     "7 条 ArkTS WARN（1 既有 syscap + 3 探针权限 + 3 deprecated）是否接受长期存在",
-    "手机 192.168.1.102:40663 已实测可连（2026-11-16 18:33 双路 CMD_STREAM ×2 ok=True、gRPC 握手完成），此问已结案；端口每次开机变，以设备屏幕为准",
+    "手机地址会漂（DHCP 租约让 102/103 互换、设备开着随机 MAC），已由 altHosts + 同网段邻居兜底 + 型号闸门自适应，不必手改配置；若要根治，需在设备 Wi-Fi 关「随机 MAC」或在路由器上做静态 DHCP 绑定（用户侧动作，未做）",
     "折叠屏内外屏切换时 AVScreenCapture 是否会中断 —— **2026-11-16 21:33 用户答复「不需要」验，此问作废结案**",
     "WPF 窗口的人工交互验收（三键、多标签、Q' 锁屏页）尚未做",
     "RPC 通道的产品化前置：用户侧必须开无线调试（hdc 依赖），且 agent.so 需随包分发并在首次启动时推送",

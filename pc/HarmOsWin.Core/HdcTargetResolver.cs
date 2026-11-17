@@ -50,20 +50,36 @@ public static class HdcTargetResolver
         string? explicitTarget,
         string? configuredTarget,
         string? cacheFile = null,
-        int probeTimeoutMs = 8000) =>
-        ResolveAsync(hdcPath, explicitTarget, configuredTarget, cacheFile, probeTimeoutMs)
+        int probeTimeoutMs = 8000,
+        IReadOnlyList<string>? alternateHosts = null,
+        string? expectedModel = null) =>
+        ResolveAsync(hdcPath, explicitTarget, configuredTarget, cacheFile, probeTimeoutMs,
+                     alternateHosts, expectedModel)
             .GetAwaiter().GetResult();
 
     /// <summary>
     /// 异步版：全部候选都失败时还会扫描设备开放端口（最后手段），所以必须异步。
     /// 扫描只在「有设备 IP」时进行，限定 hdc 无线调试常见端口段，不会全表乱扫。
+    ///
+    /// <paramref name="alternateHosts"/>（2026-11-17 新增）：**同一台设备**的备用地址。
+    /// 起因：手机开着「随机 MAC」，DHCP 租约会让 PC 与手机在 192.168.1.102 / 192.168.1.103
+    /// 之间互换（2026-11-17 实测：PC=102、手机=103），每次变了都要手改配置。
+    /// 这些 host 与 configuredTarget 的 host 一起构成「这台设备允许出现的地址白名单」——
+    /// 白名单内任意一个地址解析成功都算这台设备；白名单外一律丢弃（跨设备防串台规则不变）。
     /// </summary>
+    /// <param name="expectedModel">
+    /// 期望的真机型号（如 HOP-AL10）。非空时，probe 到的型号必须包含它才算通过 ——
+    /// 白名单放宽到多个 IP 之后，某个备用地址有可能已被**别的设备**占用（DHCP 收回再分配），
+    /// 只验「能连上」就会串台。型号校验是白名单的第二道闸。
+    /// </param>
     public static async Task<Result> ResolveAsync(
         string hdcPath,
         string? explicitTarget,
         string? configuredTarget,
         string? cacheFile = null,
-        int probeTimeoutMs = 8000)
+        int probeTimeoutMs = 8000,
+        IReadOnlyList<string>? alternateHosts = null,
+        string? expectedModel = null)
     {
         var res = new Result();
         string? cached = ReadCache(cacheFile);
@@ -72,15 +88,36 @@ public static class HdcTargetResolver
             res.Trace.Add($"缓存目标: {cached}");
         }
 
-        List<string> online = ListOnlineTargets(hdcPath, res.Trace);
         string? configuredIp = HostOf(configuredTarget);
+
+        // 地址白名单：配置主 host + 备用 host（顺序即优先度）。
+        // 为空表示配置没给 host（如只给了显式参数），此时退回旧的「不做跨设备过滤」行为。
+        var allowedHosts = new List<string>();
+        void Allow(string? h)
+        {
+            if (string.IsNullOrWhiteSpace(h)) return;
+            h = h.Trim();
+            if (allowedHosts.Any(x => string.Equals(x, h, StringComparison.OrdinalIgnoreCase))) return;
+            allowedHosts.Add(h);
+        }
+        Allow(configuredIp);
+        if (alternateHosts is not null)
+        {
+            foreach (string h in alternateHosts) Allow(HostOf(h) ?? h);
+        }
+        if (allowedHosts.Count > 1)
+        {
+            res.Trace.Add($"设备地址白名单: {string.Join(", ", allowedHosts)}");
+        }
+        bool IsAllowed(string? h) =>
+            h is null || allowedHosts.Count == 0
+            || allowedHosts.Any(x => string.Equals(x, h, StringComparison.OrdinalIgnoreCase));
+
+        List<string> online = ListOnlineTargets(hdcPath, res.Trace);
 
         // 在线列表可能为空（hdcd 会话掉了）。先用缓存目标 tconn 建链再看一次，
         // 否则「设备其实在，只是会话断了」会被误判成「没有设备」。
-        if (online.Count == 0 && cached is not null
-            && (configuredIp is null
-                || HostOf(cached) is not { } cacheHost
-                || string.Equals(cacheHost, configuredIp, StringComparison.OrdinalIgnoreCase)))
+        if (online.Count == 0 && cached is not null && IsAllowed(HostOf(cached)))
         {
             res.Trace.Add("在线列表为空，先用缓存目标 tconn 建链…");
             RunHdc(hdcPath, new[] { "tconn", cached }, probeTimeoutMs / 2, out _, out _);
@@ -97,13 +134,15 @@ public static class HdcTargetResolver
             // Probe 平板成功 → 「手机」被解析成 192.168.1.100:38803，两条采集桥
             // 抢同一个 scrcpy_grpc_socket，gRPC 流每 2.3 秒被对方踢一次，画面持续闪断，
             // 而且这条错误结果还被写回缓存，下次启动直接命中 cache。
-            // 规则：只要配置里给了 host，非同一 IP 的候选一律丢弃（显式指定除外）。
-            if (!allowForeign && configuredIp is not null)
+            // 规则：只要配置给了 host（含备用），不在白名单内的候选一律丢弃（显式指定除外）。
+            // 2026-11-17：白名单由单 IP 扩为集合，解决手机 102/103 漂移，跨设备保护不放松。
+            if (!allowForeign && allowedHosts.Count > 0)
             {
                 string? h = HostOf(t);
-                if (h is not null && !string.Equals(h, configuredIp, StringComparison.OrdinalIgnoreCase))
+                if (h is not null && !IsAllowed(h))
                 {
-                    res.Trace.Add($"丢弃跨设备候选 {t}（{source}）：配置 host 是 {configuredIp}");
+                    res.Trace.Add($"丢弃跨设备候选 {t}（{source}）：不在白名单 " +
+                                  string.Join("/", allowedHosts));
                     return;
                 }
             }
@@ -112,9 +151,15 @@ public static class HdcTargetResolver
         }
 
         Add(explicitTarget, "explicit", allowForeign: true);
-        foreach (string t in online.Where(t => configuredIp is not null && HostOf(t) == configuredIp))
+        // 在线列表里的同设备目标：按白名单顺序取，主地址优先，备用地址其次。
+        // 这一步是「IP 漂移 + 端口也变了」时唯一能直接认出来的地方。
+        foreach (string host in allowedHosts)
         {
-            Add(t, "live");   // 同一台设备换了端口，这一步能直接认出来
+            foreach (string t in online.Where(x =>
+                         string.Equals(HostOf(x), host, StringComparison.OrdinalIgnoreCase)))
+            {
+                Add(t, "live");
+            }
         }
         Add(configuredTarget, "config");
         Add(cached, "cache");
@@ -133,6 +178,13 @@ public static class HdcTargetResolver
         {
             if (Probe(hdcPath, target, probeTimeoutMs, out string detail, out string model))
             {
+                if (!ModelMatches(model, expectedModel))
+                {
+                    // 能连上但不是这台设备（备用地址被别的设备抢了）——继续试下一个候选。
+                    res.Trace.Add($"[SKIP] {target} 来源={source}: 型号 {model.Trim()} " +
+                                  $"与期望 {expectedModel} 不符");
+                    continue;
+                }
                 res.Target = target;
                 res.Source = source;
                 res.Model = model.Trim();
@@ -147,35 +199,197 @@ public static class HdcTargetResolver
 
         // 最后手段：设备重启 / 开关过无线调试 → 端口变了，而 hdcd 又不记得旧连接时，
         // 列表和配置里都拿不到新端口。此时扫描该 IP 上 hdc 常用端口段，用开放端口逐个试连。
-        string? scanHost = configuredIp ?? HostOf(cached) ?? HostOf(explicitTarget);
-        if (scanHost is not null && IsIPv4(scanHost))
+        //
+        // 2026-11-17：白名单里每个地址都扫（手机 102/103 漂移时，到底在哪一个地址上是未知的）。
+        // 顺序仍是主地址优先，最多扫 3 个；每个 host 的扫描是串行的，最坏多花一个扫描周期。
+        var scanHosts = new List<string>();
+        foreach (string h in allowedHosts)
         {
-            res.Trace.Add($"开始扫描 {scanHost} 的 hdc 端口（{ScanFrom}-{ScanTo}）…");
-            var sw = Stopwatch.StartNew();
-            List<int> open = await FindOpenPortsAsync(scanHost, ScanFrom, ScanTo).ConfigureAwait(false);
-            res.Trace.Add($"扫描完成 {sw.ElapsedMilliseconds}ms，开放端口 " +
-                          (open.Count == 0 ? "无" : string.Join(", ", open)));
-            foreach (int port in open.Take(MaxScanCandidates))
-            {
-                string cand = $"{scanHost}:{port}";
-                if (Probe(hdcPath, cand, 4000, out string detail, out string model))
-                {
-                    res.Target = cand;
-                    res.Source = "scan";
-                    res.Model = model.Trim();
-                    res.Trace.Add($"[OK] {cand} 来源=scan 设备型号={model}");
-                    WriteCache(cacheFile, cand);
-                    return res;
-                }
-                res.Trace.Add($"[FAIL] {cand} 来源=scan: {detail}");
-            }
+            if (IsIPv4(h)) scanHosts.Add(h);
         }
-        else
+        if (scanHosts.Count == 0)
+        {
+            string? fallbackHost = configuredIp ?? HostOf(cached) ?? HostOf(explicitTarget);
+            if (fallbackHost is not null && IsIPv4(fallbackHost)) scanHosts.Add(fallbackHost);
+        }
+
+        if (scanHosts.Count == 0)
         {
             res.Trace.Add("无有效 IPv4 设备地址，跳过端口扫描");
         }
+        else
+        {
+            foreach (string scanHost in scanHosts.Take(MaxScanHosts))
+            {
+                res.Trace.Add($"开始扫描 {scanHost} 的 hdc 端口（{ScanFrom}-{ScanTo}）…");
+                var sw = Stopwatch.StartNew();
+                List<int> open = await FindOpenPortsAsync(scanHost, ScanFrom, ScanTo).ConfigureAwait(false);
+                res.Trace.Add($"扫描完成 {sw.ElapsedMilliseconds}ms，开放端口 " +
+                              (open.Count == 0 ? "无" : string.Join(", ", open)));
+                foreach (int port in open.Take(MaxScanCandidates))
+                {
+                    string cand = $"{scanHost}:{port}";
+                    if (Probe(hdcPath, cand, 4000, out string detail, out string model))
+                    {
+                        if (!ModelMatches(model, expectedModel))
+                        {
+                            res.Trace.Add($"[SKIP] {cand} 来源=scan: 型号 {model.Trim()} " +
+                                          $"与期望 {expectedModel} 不符");
+                            continue;
+                        }
+                        res.Target = cand;
+                        res.Source = "scan";
+                        res.Model = model.Trim();
+                        res.Trace.Add($"[OK] {cand} 来源=scan 设备型号={model}");
+                        WriteCache(cacheFile, cand);
+                        return res;
+                    }
+                    res.Trace.Add($"[FAIL] {cand} 来源=scan: {detail}");
+                }
+            }
+        }
+
+        // ── 同网段邻居兜底（2026-11-17）──
+        // 手机开着「随机 MAC」（ARP 里 MAC 是 c2-73-8d-3a-a0-39，本地管理位 =1），
+        // DHCP 每次可能给不同地址，白名单永远追不上。这里按「期望型号」去同 /24 网段
+        // 的 ARP 邻居里找 —— 只有 probe 到的型号匹配才采纳，等于给白名单开了一个
+        // **被型号硬锁的**放宽口，不是「任意在线设备都试」。
+        // 只在白名单候选全失败后才走，所以正常情况（地址没漂）不会多花时间。
+        if (!string.IsNullOrWhiteSpace(expectedModel))
+        {
+            string? anchor = allowedHosts.FirstOrDefault(IsIPv4);
+            if (anchor is null && configuredIp is not null && IsIPv4(configuredIp)) anchor = configuredIp;
+            if (anchor is not null)
+            {
+                string prefix = anchor[..anchor.LastIndexOf('.')];
+                var tried = new HashSet<string>(scanHosts, StringComparer.OrdinalIgnoreCase);
+                foreach (string h in allowedHosts) tried.Add(h);
+                List<string> neighbors = NeighborHosts(prefix, res.Trace)
+                    .Where(h => !tried.Contains(h))
+                    .Take(MaxNeighborHosts)
+                    .ToList();
+                if (neighbors.Count > 0)
+                {
+                    res.Trace.Add($"白名单全失败，按型号 {expectedModel} 在邻居里找：" +
+                                  string.Join(", ", neighbors));
+                    foreach (string host in neighbors)
+                    {
+                        res.Trace.Add($"开始扫描邻居 {host} 的 hdc 端口（{ScanFrom}-{ScanTo}）…");
+                        List<int> open = await FindOpenPortsAsync(host, ScanFrom, ScanTo).ConfigureAwait(false);
+                        res.Trace.Add($"邻居 {host} 开放端口 " +
+                                      (open.Count == 0 ? "无" : string.Join(", ", open)));
+                        foreach (int port in open.Take(MaxScanCandidates))
+                        {
+                            string cand = $"{host}:{port}";
+                            if (!Probe(hdcPath, cand, 4000, out string detail, out string model))
+                            {
+                                res.Trace.Add($"[FAIL] {cand} 来源=neighbor: {detail}");
+                                continue;
+                            }
+                            if (!ModelMatches(model, expectedModel))
+                            {
+                                res.Trace.Add($"[SKIP] {cand} 来源=neighbor: 型号 {model.Trim()}" +
+                                              $" 与期望 {expectedModel} 不符");
+                                continue;
+                            }
+                            res.Target = cand;
+                            res.Source = "neighbor";
+                            res.Model = model.Trim();
+                            res.Trace.Add($"[OK] {cand} 来源=neighbor 设备型号={model}" +
+                                          "（地址已漂移，建议改 harmoswin.json 的 host）");
+                            WriteCache(cacheFile, cand);
+                            return res;
+                        }
+                    }
+                }
+                else
+                {
+                    res.Trace.Add("同网段没有可尝试的邻居地址");
+                }
+            }
+        }
 
         return res;
+    }
+
+    /// <summary>最多扫几台邻居（每台一轮端口扫描约 8 秒，别让启动拖太久）。</summary>
+    private const int MaxNeighborHosts = 2;
+
+    /// <summary>
+    /// 读 `arp -a` 拿同 /24 网段的活跃邻居。随机 MAC 设备换了 IP 之后，
+    /// 只有 ARP 表能告诉我们「这个网段上还有哪些地址真的活着」。
+    /// 排除：本机地址、.1（网关）、.255（广播）、已试过的白名单地址。
+    /// </summary>
+    private static List<string> NeighborHosts(string subnetPrefix, List<string> trace)
+    {
+        var list = new List<string>();
+        try
+        {
+            var psi = new ProcessStartInfo("arp")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            psi.ArgumentList.Add("-a");
+            using Process? p = Process.Start(psi);
+            if (p is null)
+            {
+                trace.Add("arp -a 启动失败");
+                return list;
+            }
+            Task<string> so = p.StandardOutput.ReadToEndAsync();
+            if (!p.WaitForExit(4000))
+            {
+                try { p.Kill(entireProcessTree: true); } catch (Exception) { }
+                trace.Add("arp -a 超时");
+                return list;
+            }
+            string output = so.GetAwaiter().GetResult();
+            var local = LocalIPv4s();
+            foreach (System.Text.RegularExpressions.Match m in
+                     System.Text.RegularExpressions.Regex.Matches(output, @"\b(\d{1,3}(?:\.\d{1,3}){3})\b"))
+            {
+                string ip = m.Groups[1].Value;
+                if (!ip.StartsWith(subnetPrefix + ".", StringComparison.Ordinal)) continue;
+                if (ip.EndsWith(".255", StringComparison.Ordinal)) continue;
+                if (ip.EndsWith(".1", StringComparison.Ordinal)) continue;   // 网关
+                if (local.Contains(ip)) continue;
+                if (list.Contains(ip)) continue;
+                list.Add(ip);
+            }
+            trace.Add("同网段 ARP 邻居: " + (list.Count == 0 ? "无" : string.Join(", ", list)));
+        }
+        catch (Exception ex)
+        {
+            trace.Add($"arp -a 失败: {ex.Message}");
+        }
+        return list;
+    }
+
+    /// <summary>本机所有 IPv4 地址（用来把「自己」从邻居候选里剔掉）。</summary>
+    private static HashSet<string> LocalIPv4s()
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            foreach (var ni in System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces())
+            {
+                foreach (var ua in ni.GetIPProperties().UnicastAddresses)
+                {
+                    if (ua.Address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                    {
+                        set.Add(ua.Address.ToString());
+                    }
+                }
+            }
+        }
+        catch (Exception)
+        {
+            // 拿不到就只是少了这层过滤，不影响主流程
+        }
+        return set;
     }
 
     // hdc 无线调试端口的实测取值范围：见过 36445 / 38803 / 40001。
@@ -183,6 +397,8 @@ public static class HdcTargetResolver
     private const int ScanFrom = 30000;
     private const int ScanTo = 45099;
     private const int MaxScanCandidates = 6;
+    /// <summary>最多扫几个设备地址（白名单里通常只有主地址 + 1 个备用）。</summary>
+    private const int MaxScanHosts = 3;
 
     private static bool IsIPv4(string host) =>
         System.Net.IPAddress.TryParse(host, out var ip)
@@ -306,6 +522,16 @@ public static class HdcTargetResolver
         }
         detail = "ok";
         return true;
+    }
+
+    /// <summary>
+    /// 型号校验：expected 为空表示不校验（保持旧行为）。用 Contains 而不是相等，
+    /// 因为 `param get const.product.model` 偶尔会带尾部脏字符或大小写差异。
+    /// </summary>
+    private static bool ModelMatches(string model, string? expected)
+    {
+        if (string.IsNullOrWhiteSpace(expected)) return true;
+        return model.Contains(expected.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>把目标写进缓存，下次启动即使在线列表为空也能先试它。</summary>

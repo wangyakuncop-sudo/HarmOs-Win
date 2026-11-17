@@ -1,10 +1,10 @@
 {
   "doc": {
     "id": "AGENTS_HARMOS_WIN",
-    "version": "1.26.0",
+    "version": "1.27.0",
     "format": "json",
     "purpose": "machine-readable engineering contract for AI agents modifying HarmOs-Win (HarmonyOS screen mirroring to Windows)",
-    "last_verified": "2026-11-16T21:52:00+08:00",
+    "last_verified": "2026-11-17T19:21:00+08:00",
     "architecture_doc": "docs/架构-HarmOs-Win.md（架构单一事实源，改分层/协议/模块必须同步）",
     "language": "zh-CN",
     "priority": "source code > this file; if conflict, fix this file immediately",
@@ -62,7 +62,7 @@
       "phone": {
         "model": "Pura X Max 典藏版",
         "type": "foldable, default unfolded",
-        "wireless": "192.168.1.103:36445"
+        "wireless": "192.168.1.103（2026-11-17 ipconfig+arp 实测：本机 PC=192.168.1.102，手机=192.168.1.103 且为随机 MAC，IP 会漂；端口每次开机变）。⚠ 102 是 PC，绝不能当设备目标"
       }
     },
     "host": {
@@ -906,6 +906,12 @@
       "date": "2026-11-16",
       "change": "【发布：HWP 主路失败提示文案更正 + 新基准】用户 21:49 就「要不要改 MainWindow.cs:4873 那句指向不存在菜单的提示」答复「改」，21:50 答复「编译」，21:51 答复「发布」。两处改动（**纯文案/注释，无逻辑变更**）：① `pc/HarmOsWin.App/MainWindow.cs` errCode=-2 分支不再输出「设备无障碍服务未开启：设置 → 辅助功能 → 扩展服务 →「HarmLink 低频操作」」（鸿蒙 7 无此菜单，等于指引用户去做一件平台不允许的事），改为「注入主路无回执（鸿蒙 7 无无障碍扩展服务）：去掉 --nav hwp 即走直连注入」；该分支仅在显式传 `--nav hwp` 时可达（`_navUseHwpMain` 默认 false），原文案属藏在逃生口里的错误指引。② `pc/HarmOsWin.Probe/Gate06.cs` 前置说明作废同一过期前置，改写明该链路在鸿蒙 7 上必然超时、只能跑出 `errCode=-2` 基线，达标证据由 uitest RPC 档承担。**新基准**：`HarmOsWin.exe` md5 `f702a7e6176577e881b7e77b4e115ec5`（1,662,494 B），归档 `releases/HarmOsWin_hwp-hint-fix_20261116.exe`（同 md5）；上一版 `releases/HarmOsWin_P0-hint-20261116.exe`（`8d400570…`）保留作回退点，**本轮起有两个回退点**。**桥 5 文件随本轮重新构建、md5 全变**（exe `2e9c5d98…` / dll `d9d89943…` / deps.json `c21e4be6…` / runtimeconfig.json `25333399…` / pdb `a3e00dc4…`），根目录已一并覆盖——**分发/回退时 exe 与桥 5 文件必须成套，勿只换 exe**。assets 两个 so 未动，配置 `0c503afd…` 未动。验证：`dotnet publish -c Release -r win-x64 -p:PublishSingleFile=true` 0 警告 0 错误；静态校验新 exe 内 UTF-16LE 检出「注入主路无回执」「去掉 --nav hwp 即走直连注入」，旧串「无障碍扩展服务未开启」已不存在；validate_memory.ps1 21 项 0 警告。**未启动 App、未连设备**，`--nav hwp` 路径的真实弹窗仍未目视验收。",
       "basis": "用户 2026-11-16 21:49「改」/ 21:50「编译」/ 21:51「发布」三轮当次授权；改动依据为 `facts.accessibility_service_no_entry_on_rom`（鸿蒙 7 无无障碍扩展服务、`AccessibilityExtensionContext` 自 API 12 全量 deprecated）。"
+    },
+    {
+      "version": "1.27.0",
+      "date": "2026-11-17",
+      "change": "【设备地址漂移自适应 + 地址事实纠正】用户 2026-11-17 反馈「手机无线调试地址变成 192.168.1.103，在两个 IP 之间经常切换，能不能做个备用」，19:20 授权「执行」。**先纠正一个错了很多轮的事实**：`ipconfig` 实测本机 WLAN = `192.168.1.102`；`arp -a` 里 `192.168.1.103` 的 MAC 为 `c2-73-8d-3a-a0-39`（本地管理位=1，即随机 MAC）；`hdc list targets -v` 里 `102:40663` 是 **Offline**（把 PC 自己当成了设备），`100:38803` 才 Connected。→ **手机是 192.168.1.103，192.168.1.102 是本机 PC，永远不能当设备目标**；此前「手机 IP 就是 102（用户 18:18 最后强调）」的结论作废，配置写 102 正是手机长期连不上的根因。本轮改动（首次触及解析逻辑，此前几轮只动文案）：① `harmoswin.json` 新增 `devices[].altHosts`（同一设备的备用 IP 列表，端口忽略），手机 `host` 改回 `192.168.1.103`、`altHosts` 暂空（没有第二个确定地址）；② `HdcTargetResolver` 的跨设备过滤由「单一 configuredIp 相等」扩为「host + altHosts 白名单集合」，白名单内任意地址 probe 成功即认这台设备，**白名单外仍一律丢弃**（2026-11-13 双路抢 `scrcpy_grpc_socket` 事故的保护不放松）；③ 端口扫描由 1 个 host 改为遍历白名单（`MaxScanHosts=3`）；④ 新增 **`expectedModel` 型号闸门**：probe 到的 `const.product.model` 必须包含配置 `model`，否则 `[SKIP]` 换下一候选；⑤ 新增 **同网段邻居兜底**：白名单候选全失败且有 expectedModel 时，读 `arp -a` 取同 /24 活跃邻居（排除本机 / 网关 / 已试地址，最多 2 台），逐台扫端口 + probe + 型号校验，命中记 `来源=neighbor` 并在日志提示改配置 —— 这是随机 MAC 场景下真正免维护的路径，也是本次需求的核心；⑥ 双路解析成功后 `d.Host` 跟随实际 IP（否则 HAP 推流会往漂走的地址推）。**为什么不用「任意在线设备都试」**：会重现 2026-11-13 串台事故（手机离线时解析到平板，两桥抢同一 socket，画面每 2.3 秒闪断），故只把白名单扩为集合，判定边界不放宽，邻居兜底则由型号硬锁。**新基准**：`HarmOsWin.exe` md5 `8a51e6ea8ef7c36671c0e7dedd07bdab`（1,670,686 B），归档 `releases/HarmOsWin_altHosts_20261117.exe`（同 md5）；回退点三个（`hwp-hint-fix_20261116`=`f702a7e6…`、`P0-hint-20261116`=`8d400570…`）。配置 `2c1cf5cf281f08b13408bcdc97563273`（4 份副本一致）。桥 exe `556780b9…` / dll `f7b5bab9…`（deps.json 与 runtimeconfig.json 未变）——**桥源码未改但重编译 md5 就变，别拿它当证据；分发/回退必须与 exe 成套**。验证：build 0 警告 0 错误、publish 成功、新 exe UTF-16LE 检得 `altHosts` / `同网段 ARP 邻居` / `白名单全失败` / `地址已漂移`。**未启动 App、未连设备**，真机漂移与 neighbor 兜底仍未实测。",
+      "basis": "用户 2026-11-17 19:11 原话：「手机的无线调试地址 变成了 192.168.1.103，我发现它在两个 IP 地址 192.168.1.103 192.168.1.103 之间经常切换。可以做一个备用吗？」+ 19:20「执行」当次授权；地址事实来自 19:22 `ipconfig` / `arp -a` / `hdc list targets -v` 三项实测。"
     }
   ]
 }
