@@ -1,15 +1,15 @@
 {
   "doc": {
     "id": "AGENTS_HARMOS_WIN",
-    "version": "1.27.0",
+    "version": "1.28.0",
     "format": "json",
     "purpose": "machine-readable engineering contract for AI agents modifying HarmOs-Win (HarmonyOS screen mirroring to Windows)",
-    "last_verified": "2026-11-17T19:21:00+08:00",
+    "last_verified": "2026-11-17T19:46:00+08:00",
     "architecture_doc": "docs/架构-HarmOs-Win.md（架构单一事实源，改分层/协议/模块必须同步）",
     "language": "zh-CN",
     "priority": "source code > this file; if conflict, fix this file immediately",
     "progress_file": "PROGRESS.json (session resume state; read after this file)",
-    "last_updated": "2026-11-16"
+    "last_updated": "2026-11-17"
   },
   "protocol": {
     "index_file": "INDEX.json",
@@ -62,7 +62,7 @@
       "phone": {
         "model": "Pura X Max 典藏版",
         "type": "foldable, default unfolded",
-        "wireless": "192.168.1.103（2026-11-17 ipconfig+arp 实测：本机 PC=192.168.1.102，手机=192.168.1.103 且为随机 MAC，IP 会漂；端口每次开机变）。⚠ 102 是 PC，绝不能当设备目标"
+        "wireless": "192.168.1.103（**静态**：2026-11-17 19:41 用户在「设置 › WLAN › Ykun › IP」保存 IP 192.168.1.103 / 前缀 24 / 网关 192.168.1.1，`ifconfig wlan0` 实测 inet 192.168.1.103 Mask 255.255.255.0；地址不会自己漂，端口每次开机可能变）。⚠ 192.168.1.102 是本机 PC 的 WLAN（ipconfig 实测），绝不可当设备目标；2026-11-16「手机=102」是当时的 DHCP 租约值，已作废"
       }
     },
     "host": {
@@ -912,6 +912,12 @@
       "date": "2026-11-17",
       "change": "【设备地址漂移自适应 + 地址事实纠正】用户 2026-11-17 反馈「手机无线调试地址变成 192.168.1.103，在两个 IP 之间经常切换，能不能做个备用」，19:20 授权「执行」。**先纠正一个错了很多轮的事实**：`ipconfig` 实测本机 WLAN = `192.168.1.102`；`arp -a` 里 `192.168.1.103` 的 MAC 为 `c2-73-8d-3a-a0-39`（本地管理位=1，即随机 MAC）；`hdc list targets -v` 里 `102:40663` 是 **Offline**（把 PC 自己当成了设备），`100:38803` 才 Connected。→ **手机是 192.168.1.103，192.168.1.102 是本机 PC，永远不能当设备目标**；此前「手机 IP 就是 102（用户 18:18 最后强调）」的结论作废，配置写 102 正是手机长期连不上的根因。本轮改动（首次触及解析逻辑，此前几轮只动文案）：① `harmoswin.json` 新增 `devices[].altHosts`（同一设备的备用 IP 列表，端口忽略），手机 `host` 改回 `192.168.1.103`、`altHosts` 暂空（没有第二个确定地址）；② `HdcTargetResolver` 的跨设备过滤由「单一 configuredIp 相等」扩为「host + altHosts 白名单集合」，白名单内任意地址 probe 成功即认这台设备，**白名单外仍一律丢弃**（2026-11-13 双路抢 `scrcpy_grpc_socket` 事故的保护不放松）；③ 端口扫描由 1 个 host 改为遍历白名单（`MaxScanHosts=3`）；④ 新增 **`expectedModel` 型号闸门**：probe 到的 `const.product.model` 必须包含配置 `model`，否则 `[SKIP]` 换下一候选；⑤ 新增 **同网段邻居兜底**：白名单候选全失败且有 expectedModel 时，读 `arp -a` 取同 /24 活跃邻居（排除本机 / 网关 / 已试地址，最多 2 台），逐台扫端口 + probe + 型号校验，命中记 `来源=neighbor` 并在日志提示改配置 —— 这是随机 MAC 场景下真正免维护的路径，也是本次需求的核心；⑥ 双路解析成功后 `d.Host` 跟随实际 IP（否则 HAP 推流会往漂走的地址推）。**为什么不用「任意在线设备都试」**：会重现 2026-11-13 串台事故（手机离线时解析到平板，两桥抢同一 socket，画面每 2.3 秒闪断），故只把白名单扩为集合，判定边界不放宽，邻居兜底则由型号硬锁。**新基准**：`HarmOsWin.exe` md5 `8a51e6ea8ef7c36671c0e7dedd07bdab`（1,670,686 B），归档 `releases/HarmOsWin_altHosts_20261117.exe`（同 md5）；回退点三个（`hwp-hint-fix_20261116`=`f702a7e6…`、`P0-hint-20261116`=`8d400570…`）。配置 `2c1cf5cf281f08b13408bcdc97563273`（4 份副本一致）。桥 exe `556780b9…` / dll `f7b5bab9…`（deps.json 与 runtimeconfig.json 未变）——**桥源码未改但重编译 md5 就变，别拿它当证据；分发/回退必须与 exe 成套**。验证：build 0 警告 0 错误、publish 成功、新 exe UTF-16LE 检得 `altHosts` / `同网段 ARP 邻居` / `白名单全失败` / `地址已漂移`。**未启动 App、未连设备**，真机漂移与 neighbor 兜底仍未实测。",
       "basis": "用户 2026-11-17 19:11 原话：「手机的无线调试地址 变成了 192.168.1.103，我发现它在两个 IP 地址 192.168.1.103 192.168.1.103 之间经常切换。可以做一个备用吗？」+ 19:20「执行」当次授权；地址事实来自 19:22 `ipconfig` / `arp -a` / `hdc list targets -v` 三项实测。"
+    },
+    {
+      "version": "1.28.0",
+      "date": "2026-11-17",
+      "change": "【配置注释更正：手机已静态 103，102 是 PC】用户 19:41 在手机系统设置保存静态 IP 后要求复检，19:45 答「执行」。实测：`hdc -t 192.168.1.103:40663 shell ifconfig wlan0` → `inet 192.168.1.103 Mask 255.255.255.0`；`param get const.product.model` → `HOP-AL10`；端口仍 40663（未变）。**代码零改动**，只改 `harmoswin.json` 的三处注释字段：`devices[手机].note`（原写「随机 MAC 所以 IP 会漂」→ 改为静态 103 已定案 + 102 是 PC）、`_altHostsNote`（说明 altHosts 是保险、手机静态故留空）、`_twoDeviceNote`（删掉「102/103 来回切，路由发了两个租约」的错误推断）。配置 md5 `2c1cf5cf…` → **`08b3656e4b9025af46b1782df75684ac`**（4 份副本已同步）。exe 未重新发布：`8a51e6ea…` 仍是基准，配置是外置文件，改注释不影响程序。**真机旁证（v1.27.0 自愈链首次实证）**：保存静态 IP 触发 Wi‑Fi 重连 → 手机采集流断（DATA 累计 16,600,663 B、gRPC 目标拒绝连接）→ 19:41:09 自愈：`kill -9` 残留扩展守护 62643 → `uitest start-daemon ... libscreen_casting.z.so -scale 2` → 686ms 就绪 → fport 18620 重建 → 19:41:14 h2c 重连 + 握手完成请求 IDR，**9 秒恢复，未重启 App**。另：19:35:49 启动日志显示平板 `来源=live 型号 MLR-AL00`、手机 `来源=config 型号 HOP-AL10`，双路 `CMD_STREAM ok=True`，型号闸门未误杀；设备标签「当前共 3 枚」是 `AddDeviceChip` 后、`RemovePendingDeviceUi` 前的瞬时值，最终 2 枚。",
+      "basis": "用户 2026-11-17 19:41「已经保存，重新检测。192.168.1.103」+ 19:45「执行」当次授权；实测证据为 `ifconfig wlan0` / `param get const.product.model` / `hdc list targets -v` 与 `logs/startup.log` 19:35–19:41 段。"
     }
   ]
 }

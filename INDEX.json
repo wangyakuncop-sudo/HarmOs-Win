@@ -1,7 +1,7 @@
 {
   "schema": "index/v1",
   "project": "HarmOs-Win",
-  "updated_at": "2026-11-17T19:26:00+08:00",
+  "updated_at": "2026-11-17T19:46:00+08:00",
   "usage": "Search entries[].keys (Chinese or English), then open entries[].path and look for entries[].symbol",
   "entries": [
     {
@@ -17,7 +17,7 @@
       ],
       "path": "AGENTS.json",
       "symbol": "invariants / decisions / verification_gates",
-      "summary": "工程契约（v1.27.0）：13 条硬性约束、8 条决策、**8 个验证门**（GATE-02/L0/06 已达标或通过；GATE-03/05 由 DEC-08 判死结案；GATE-01/04 部分通过）。NEXT-07 无障碍通道永久销项（鸿蒙 7 平台无此能力）、NEXT-06 折展验证取消、NEXT-01A 关闭，pending 已 0 条未结项"
+      "summary": "工程契约（v1.28.0）：13 条硬性约束、8 条决策、**8 个验证门**（GATE-02/L0/06 已达标或通过；GATE-03/05 由 DEC-08 判死结案；GATE-01/04 部分通过）。NEXT-07 无障碍通道永久销项（鸿蒙 7 平台无此能力）、NEXT-06 折展验证取消、NEXT-01A 关闭，pending 已 0 条未结项"
     },
     {
       "id": "doc-index",
